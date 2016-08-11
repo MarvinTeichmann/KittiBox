@@ -1,0 +1,3 @@
+[submodule "submodules/TensorVision"]
+	path = submodules/TensorVision
+	url = https://github.com/TensorVision/TensorVision
