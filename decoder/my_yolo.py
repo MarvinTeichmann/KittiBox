@@ -206,6 +206,27 @@ def decoder(hyp, logits, phase):
         pred_confs_deltas, pred_boxes_deltas
 
 
+def _computed_shaped_labels(hypes, labels, phase):
+    flags, confidences, boxes = labels
+
+    grid_size = hypes['grid_width'] * hypes['grid_height']
+    outer_size = grid_size * hypes['batch_size']
+    with tf.variable_scope('decoder',
+                           reuse={'train': None, 'val': True}[phase]):
+        outer_boxes = tf.reshape(boxes, [outer_size, hypes['rnn_len'], 4])
+        outer_flags = tf.cast(
+            tf.reshape(flags, [outer_size, hypes['rnn_len']]), 'int32')
+
+        classes = tf.reshape(flags, (outer_size, 1))
+        perm_truth = tf.reshape(outer_boxes, (outer_size, 1, 4))
+        pred_mask = tf.reshape(
+            tf.cast(tf.greater(classes, 0), 'float32'), (outer_size, 1, 1))
+        true_classes = tf.reshape(tf.cast(tf.greater(classes, 0), 'int64'),
+                                  [outer_size * hypes['rnn_len']])
+
+    return perm_truth, pred_mask, true_classes, classes
+
+
 def loss(hypes, decoded_logits, labels, phase):
     """Calculate the loss from the logits and the labels.
 
@@ -217,44 +238,23 @@ def loss(hypes, decoded_logits, labels, phase):
       loss: Loss tensor of type float.
     """
 
-    flags, confidences, boxes = labels
-
     (pred_boxes, pred_logits, pred_confidences,
      pred_confs_deltas, pred_boxes_deltas) = decoded_logits
 
     grid_size = hypes['grid_width'] * hypes['grid_height']
     outer_size = grid_size * hypes['batch_size']
 
-    with tf.variable_scope('decoder',
-                           reuse={'train': None, 'val': True}[phase]):
-        outer_boxes = tf.reshape(boxes, [outer_size, hypes['rnn_len'], 4])
-        outer_flags = tf.cast(
-            tf.reshape(flags, [outer_size, hypes['rnn_len']]), 'int32')
-        if hypes['use_lstm']:
-            assignments, classes, perm_truth, pred_mask = (
-                tf.user_ops.hungarian(pred_boxes, outer_boxes, outer_flags,
-                                      hypes['solver']['hungarian_iou']))
-        else:
-            classes = tf.reshape(flags, (outer_size, 1))
-            perm_truth = tf.reshape(outer_boxes, (outer_size, 1, 4))
-            pred_mask = tf.reshape(
-                tf.cast(tf.greater(classes, 0), 'float32'), (outer_size, 1, 1))
-        true_classes = tf.reshape(tf.cast(tf.greater(classes, 0), 'int64'),
-                                  [outer_size * hypes['rnn_len']])
-        pred_logit_r = tf.reshape(pred_logits,
-                                  [outer_size * hypes['rnn_len'],
-                                   hypes['num_classes']])
-
-    grid_size = hypes['grid_width'] * hypes['grid_height']
-    outer_size = grid_size * hypes['batch_size']
+    perm_truth, pred_mask, true_classes, classes = \
+        _computed_shaped_labels(hypes, labels, phase)
 
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        pred_logit_r, true_classes)
+        pred_logits, true_classes)
 
     cross_entropy_sum = (tf.reduce_sum(cross_entropy))
 
     head = hypes['solver']['head_weights']
     confidences_loss = cross_entropy_sum / outer_size * head[0]
+
     residual = tf.reshape(perm_truth - pred_boxes * pred_mask,
                           [outer_size, hypes['rnn_len'], 4])
 
