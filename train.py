@@ -222,7 +222,8 @@ def main(_):
     utils.load_plugins()
 
     if 'TV_DIR_RUNS' in os.environ:
-        os.environ['TV_DIR_RUNS'] = os.path.join(os.environ['TV_DIR_RUNS'])
+        os.environ['TV_DIR_RUNS'] = os.path.join(os.environ['TV_DIR_RUNS'],
+                                                 'TensorDetect')
 
     utils.set_dirs(hypes, tf.app.flags.FLAGS.hypes)
 
