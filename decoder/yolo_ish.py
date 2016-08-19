@@ -111,7 +111,8 @@ def _build_overfeat_inner(hyp, lstm_input):
     outputs = []
     initializer = tf.random_uniform_initializer(-0.1, 0.1)
     with tf.variable_scope('Overfeat', initializer=initializer):
-        w = tf.get_variable('ip', shape=[1024, hyp['lstm_size']])
+        w = tf.get_variable('ip', shape=[hyp['cnn_channels'],
+                                         hyp['lstm_size']])
         outputs.append(tf.matmul(lstm_input, w))
     return outputs
 
@@ -171,12 +172,13 @@ def decoder(hyp, logits, phase):
 
     num_ex = hyp['batch_size'] * hyp['grid_width'] * hyp['grid_height']
 
-    cnn = tf.reshape(cnn, [num_ex, 1024])
+    channels = hyp['cnn_channels']
+    cnn = tf.reshape(cnn, [num_ex, channels])
     initializer = tf.random_uniform_initializer(-0.1, 0.1)
     with tf.variable_scope('decoder', reuse=reuse, initializer=initializer):
         scale_down = 0.01
         lstm_input = tf.reshape(
-            cnn * scale_down, (hyp['batch_size'] * grid_size, 1024))
+            cnn * scale_down, (hyp['batch_size'] * grid_size, channels))
         if hyp['use_lstm']:
             lstm_outputs = _build_lstm_inner(hyp, lstm_input)
         else:
@@ -275,7 +277,7 @@ def decoder(hyp, logits, phase):
     return logits
 
 
-def loss(hypes, decoded_logits, labels, phase='train'):
+def loss(hypes, decoded_logits, labels, phase):
     """Calculate the loss from the logits and the labels.
 
     Args:
@@ -353,6 +355,7 @@ def loss(hypes, decoded_logits, labels, phase='train'):
             / outer_size * hypes['solver']['head_weights'][0] * 0.1
 
         loss = confidences_loss + boxes_loss + delta_confs_loss
+
         if hypes['reregress']:
             delta_unshaped = perm_truth - (pred_boxes + pred_boxes_deltas)
 
@@ -375,21 +378,22 @@ def loss(hypes, decoded_logits, labels, phase='train'):
     else:
         loss = confidences_loss + boxes_loss
 
-    tf.scalar_summary("%s/confidences_loss", confidences_loss)
-    tf.scalar_summary("%s/regression_loss", boxes_loss)
+    tf.add_to_collection('losses', loss)
 
-    return loss, confidences_loss, boxes_loss
+    total_loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
+
+    return total_loss, confidences_loss, boxes_loss
 
 
-def evaluation(hyp, images, labels, decoded_logits):
+def evaluation(hyp, images, labels, decoded_logits, losses, global_step):
 
-    accuracy = {}
-    global_step = hyp['tensors']['global_step']
+    loss, accuracy, confidences_loss, boxes_loss = {}, {}, {}, {}
 
     # Estimating Accuracy
     for phase in ['train', 'val']:
 
         flags, confidences, boxes = labels[phase]
+        loss[phase], confidences_loss[phase], boxes_loss[phase] = losses[phase]
 
         (pred_boxes, pred_logits, pred_confidences,
          pred_confs_deltas, pred_boxes_deltas) = decoded_logits[phase]
@@ -410,8 +414,24 @@ def evaluation(hyp, images, labels, decoded_logits):
 
     # Writing Metrics to Tensorboard
 
+    moving_avg = tf.train.ExponentialMovingAverage(0.95)
+    smooth_op = moving_avg.apply([accuracy['train'], accuracy['val'],
+                                  confidences_loss[
+                                      'train'], boxes_loss['train'],
+                                  confidences_loss[
+                                      'val'], boxes_loss['val'],
+                                  ])
+
     for p in ['train', 'val']:
         tf.scalar_summary('%s/accuracy' % p, accuracy[p])
+        tf.scalar_summary('%s/accuracy/smooth' %
+                          p, moving_avg.average(accuracy[p]))
+        tf.scalar_summary("%s/confidences_loss" % p, confidences_loss[p])
+        tf.scalar_summary("%s/confidences_loss/smooth" % p,
+                          moving_avg.average(confidences_loss[p]))
+        tf.scalar_summary("%s/regression_loss" % p, boxes_loss[p])
+        tf.scalar_summary("%s/regression_loss/smooth" % p,
+                          moving_avg.average(boxes_loss[p]))
 
     test_image = images['val']
     # show ground truth to verify labels are correct
@@ -453,4 +473,4 @@ def evaluation(hyp, images, labels, decoded_logits):
     tf.image_summary(phase + '/true_boxes', tf.pack(true_log_img),
                      max_images=10)
 
-    return accuracy
+    return accuracy, smooth_op

@@ -1,0 +1,57 @@
+{
+    "model": {
+    "input_file": "../inputs/idl_input.py",
+    "architecture_file" : "../encoder/vgg.py",
+    "objective_file" : "../decoder/yolo_ish.py",
+    "optimizer_file" : "../optimizer/clip_optimizer.py",
+    "evaluator_file" : "../inputs/cars_eval.py"
+    },
+    "data": {
+        "train_idl": "Kitti_Cars/train_2.idl",
+        "val_idl": "Kitti_Cars/val_2.idl",
+        "truncate_data": false
+    },
+    "logging": {
+        "display_iter": 50,
+        "eval_iter": 500,
+        "save_iter": 10000
+    },
+    "path": ["../incl"],
+    "solver": {
+        "opt": "Adam",
+        "use_jitter": false,
+        "rnd_seed": 1,
+        "epsilon": 0.00001, 
+        "learning_rate": 1e-4, 
+        "learning_rate_step": null, 
+        "hungarian_iou": 0.25,
+        "batch_size": 1,
+        "weights": "",
+        "head_weights": [1.0, 0.1],
+        "max_steps": 150000
+    },
+    "use_lstm": false,
+    "use_rezoom": true,
+    "biggest_box_px": 10000,
+    "rezoom_change_loss": "center",
+    "rezoom_w_coords": [-0.25, 0.25],
+    "rezoom_h_coords": [-0.25, 0.25],
+    "reregress": true,
+    "focus_size": 1.8,
+    "early_feat_channels": 256,
+    "cnn_channels": 512,
+    "avg_pool_size": 1,
+    "num_lstm_layers": 2,
+    "image_height": 288,
+    "image_width": 960, 
+    "grid_width": 30,
+    "grid_height": 9,
+    "batch_size": 1, 
+    "tau": 0.25,
+    "region_size": 32,
+    "clip_norm": 1.0,
+    "lstm_size": 500,
+    "deconv": false,
+    "num_classes": 2,
+    "rnn_len": 1
+}
