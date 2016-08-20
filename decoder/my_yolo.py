@@ -218,13 +218,67 @@ def _computed_shaped_labels(hypes, labels, phase):
             tf.reshape(flags, [outer_size, hypes['rnn_len']]), 'int32')
 
         classes = tf.reshape(flags, (outer_size, 1))
-        perm_truth = tf.reshape(outer_boxes, (outer_size, 1, 4))
-        pred_mask = tf.reshape(
+        gt_box = tf.reshape(outer_boxes, (outer_size, 1, 4))
+        box_mask = tf.reshape(
             tf.cast(tf.greater(classes, 0), 'float32'), (outer_size, 1, 1))
         true_classes = tf.reshape(tf.cast(tf.greater(classes, 0), 'int64'),
                                   [outer_size * hypes['rnn_len']])
 
-    return perm_truth, pred_mask, true_classes, classes
+    return gt_box, box_mask, true_classes, classes
+
+
+def _compute_rezoom_loss(hypes, gt_box, box_mask, classes, pred_boxes,
+                         pred_confs_deltas, pred_boxes_deltas,
+                         phase):
+    head = hypes['solver']['head_weights']
+    grid_size = hypes['grid_width'] * hypes['grid_height']
+    outer_size = grid_size * hypes['batch_size']
+
+    if hypes['rezoom_change_loss'] == 'center':
+        error = (gt_box[:, :, 0:2] - pred_boxes[:, :, 0:2]) \
+            / tf.maximum(gt_box[:, :, 2:4], 1.)
+        square_error = tf.reduce_sum(tf.square(error), 2)
+        inside = tf.reshape(tf.to_int64(
+            tf.logical_and(tf.less(square_error, 0.2**2),
+                           tf.greater(classes, 0))), [-1])
+    elif hypes['rezoom_change_loss'] == 'iou':
+        pred_boxes_flat = tf.reshape(pred_boxes, [-1, 4])
+        perm_truth_flat = tf.reshape(gt_box, [-1, 4])
+        iou = train_utils.iou(train_utils.to_x1y1x2y2(pred_boxes_flat),
+                              train_utils.to_x1y1x2y2(perm_truth_flat))
+        inside = tf.reshape(tf.to_int64(tf.greater(iou, 0.5)), [-1])
+    else:
+        assert not hypes['rezoom_change_loss']
+        inside = tf.reshape(tf.to_int64((tf.greater(classes, 0))), [-1])
+
+    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
+        pred_confs_deltas, inside)
+
+    delta_confs_loss = tf.reduce_sum(cross_entropy) \
+        / outer_size * hypes['solver']['head_weights'][0] * 0.1
+
+    if hypes['reregress']:
+        delta_unshaped = gt_box - (pred_boxes + pred_boxes_deltas)
+
+        delta_residual = tf.reshape(delta_unshaped * box_mask,
+                                    [outer_size, hypes['rnn_len'], 4])
+        sqrt_delta = tf.minimum(tf.square(delta_residual), 10. ** 2)
+        delta_boxes_loss = (tf.reduce_sum(sqrt_delta) /
+                            outer_size * head[1] * 0.03)
+        boxes_loss = delta_boxes_loss
+
+        tf.histogram_summary(
+            phase + '/delta_hist0_x', pred_boxes_deltas[:, 0, 0])
+        tf.histogram_summary(
+            phase + '/delta_hist0_y', pred_boxes_deltas[:, 0, 1])
+        tf.histogram_summary(
+            phase + '/delta_hist0_w', pred_boxes_deltas[:, 0, 2])
+        tf.histogram_summary(
+            phase + '/delta_hist0_h', pred_boxes_deltas[:, 0, 3])
+
+        return delta_confs_loss + delta_boxes_loss
+
+    return delta_confs_loss
 
 
 def loss(hypes, decoded_logits, labels, phase):
@@ -244,68 +298,28 @@ def loss(hypes, decoded_logits, labels, phase):
     grid_size = hypes['grid_width'] * hypes['grid_height']
     outer_size = grid_size * hypes['batch_size']
 
-    perm_truth, pred_mask, true_classes, classes = \
+    gt_box, box_mask, true_classes, classes = \
         _computed_shaped_labels(hypes, labels, phase)
 
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
         pred_logits, true_classes)
 
-    cross_entropy_sum = (tf.reduce_sum(cross_entropy))
-
     head = hypes['solver']['head_weights']
-    confidences_loss = cross_entropy_sum / outer_size * head[0]
 
-    residual = tf.reshape(perm_truth - pred_boxes * pred_mask,
+    confidences_loss = tf.reduce_mean(cross_entropy) * head[0]
+
+    residual = tf.reshape(gt_box - pred_boxes * box_mask,
                           [outer_size, hypes['rnn_len'], 4])
 
     boxes_loss = tf.reduce_sum(tf.abs(residual)) / outer_size * head[1]
+
+    loss = confidences_loss + boxes_loss
+
     if hypes['use_rezoom']:
-        if hypes['rezoom_change_loss'] == 'center':
-            error = (perm_truth[:, :, 0:2] - pred_boxes[:, :, 0:2]) \
-                / tf.maximum(perm_truth[:, :, 2:4], 1.)
-            square_error = tf.reduce_sum(tf.square(error), 2)
-            inside = tf.reshape(tf.to_int64(
-                tf.logical_and(tf.less(square_error, 0.2**2),
-                               tf.greater(classes, 0))), [-1])
-        elif hypes['rezoom_change_loss'] == 'iou':
-            pred_boxes_flat = tf.reshape(pred_boxes, [-1, 4])
-            perm_truth_flat = tf.reshape(perm_truth, [-1, 4])
-            iou = train_utils.iou(train_utils.to_x1y1x2y2(pred_boxes_flat),
-                                  train_utils.to_x1y1x2y2(perm_truth_flat))
-            inside = tf.reshape(tf.to_int64(tf.greater(iou, 0.5)), [-1])
-        else:
-            assert not hypes['rezoom_change_loss']
-            inside = tf.reshape(tf.to_int64((tf.greater(classes, 0))), [-1])
-
-        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-            pred_confs_deltas, inside)
-
-        delta_confs_loss = tf.reduce_sum(cross_entropy) \
-            / outer_size * hypes['solver']['head_weights'][0] * 0.1
-
-        loss = confidences_loss + boxes_loss + delta_confs_loss
-
-        if hypes['reregress']:
-            delta_unshaped = perm_truth - (pred_boxes + pred_boxes_deltas)
-
-            delta_residual = tf.reshape(delta_unshaped * pred_mask,
-                                        [outer_size, hypes['rnn_len'], 4])
-            sqrt_delta = tf.minimum(tf.square(delta_residual), 10. ** 2)
-            delta_boxes_loss = (tf.reduce_sum(sqrt_delta) /
-                                outer_size * head[1] * 0.03)
-            boxes_loss = delta_boxes_loss
-
-            tf.histogram_summary(
-                phase + '/delta_hist0_x', pred_boxes_deltas[:, 0, 0])
-            tf.histogram_summary(
-                phase + '/delta_hist0_y', pred_boxes_deltas[:, 0, 1])
-            tf.histogram_summary(
-                phase + '/delta_hist0_w', pred_boxes_deltas[:, 0, 2])
-            tf.histogram_summary(
-                phase + '/delta_hist0_h', pred_boxes_deltas[:, 0, 3])
-            loss += delta_boxes_loss
-    else:
-        loss = confidences_loss + boxes_loss
+        rezoom_loss = _compute_rezoom_loss(hypes, gt_box, box_mask, classes,
+                                           pred_boxes, pred_confs_deltas,
+                                           pred_boxes_deltas, phase)
+        loss = loss + rezoom_loss
 
     tf.add_to_collection('losses', loss)
 
