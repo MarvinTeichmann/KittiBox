@@ -165,10 +165,12 @@ def decoder(hyp, logits, phase):
 
     num_ex = hyp['batch_size'] * hyp['grid_width'] * hyp['grid_height']
 
-    channels = hyp['cnn_channels']
-    cnn_output = tf.reshape(cnn_output, [num_ex, channels])
+    with tf.name_scope('CNN_Reshape'):
+        channels = hyp['cnn_channels']
+        cnn_output = tf.reshape(cnn_output, [num_ex, channels])
+
     initializer = tf.random_uniform_initializer(-0.1, 0.1)
-    with tf.variable_scope('decoder', reuse=reuse, initializer=initializer):
+    with tf.variable_scope('Yolo_fcn', reuse=reuse, initializer=initializer):
 
         raw_output = _build_yolo_fc_layer(hyp, cnn_output)
 
@@ -194,9 +196,10 @@ def decoder(hyp, logits, phase):
                                        hyp['num_classes']])
 
         if hyp['use_rezoom']:
-            rezoom_deltas = apply_rezoom(hyp, phase, early_feat,
-                                         raw_output, pred_box,
-                                         pred_confidences)
+            with tf.name_scope('Rezoom_Layer'):
+                rezoom_deltas = apply_rezoom(hyp, phase, early_feat,
+                                             raw_output, pred_box,
+                                             pred_confidences)
         else:
             rezoom_deltas = (None, None)
 
@@ -211,7 +214,7 @@ def _computed_shaped_labels(hypes, labels, phase):
 
     grid_size = hypes['grid_width'] * hypes['grid_height']
     outer_size = grid_size * hypes['batch_size']
-    with tf.variable_scope('decoder',
+    with tf.variable_scope('Label_Reshape',
                            reuse={'train': None, 'val': True}[phase]):
         outer_boxes = tf.reshape(boxes, [outer_size, hypes['rnn_len'], 4])
         outer_flags = tf.cast(
@@ -298,32 +301,36 @@ def loss(hypes, decoded_logits, labels, phase):
     grid_size = hypes['grid_width'] * hypes['grid_height']
     outer_size = grid_size * hypes['batch_size']
 
-    gt_box, box_mask, true_classes, classes = \
-        _computed_shaped_labels(hypes, labels, phase)
+    with tf.name_scope('Loss'):
 
-    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        pred_logits, true_classes)
+        gt_box, box_mask, true_classes, classes = \
+            _computed_shaped_labels(hypes, labels, phase)
 
-    head = hypes['solver']['head_weights']
+        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
+            pred_logits, true_classes)
 
-    confidences_loss = tf.reduce_mean(cross_entropy) * head[0]
+        head = hypes['solver']['head_weights']
 
-    residual = tf.reshape(gt_box - pred_boxes * box_mask,
-                          [outer_size, hypes['rnn_len'], 4])
+        confidences_loss = tf.reduce_mean(cross_entropy) * head[0]
 
-    boxes_loss = tf.reduce_sum(tf.abs(residual)) / outer_size * head[1]
+        residual = tf.reshape(gt_box - pred_boxes * box_mask,
+                              [outer_size, hypes['rnn_len'], 4])
 
-    loss = confidences_loss + boxes_loss
+        boxes_loss = tf.reduce_sum(tf.abs(residual)) / outer_size * head[1]
 
-    if hypes['use_rezoom']:
-        rezoom_loss = _compute_rezoom_loss(hypes, gt_box, box_mask, classes,
-                                           pred_boxes, pred_confs_deltas,
-                                           pred_boxes_deltas, phase)
-        loss = loss + rezoom_loss
+        loss = confidences_loss + boxes_loss
 
-    tf.add_to_collection('losses', loss)
+        if hypes['use_rezoom']:
+            with tf.name_scope('Rezoom_loss'):
+                rezoom_loss = _compute_rezoom_loss(hypes, gt_box, box_mask,
+                                                   classes, pred_boxes,
+                                                   pred_confs_deltas,
+                                                   pred_boxes_deltas, phase)
+                loss = loss + rezoom_loss
 
-    total_loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
+        tf.add_to_collection('losses', loss)
+
+        total_loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
 
     return total_loss, confidences_loss, boxes_loss
 
@@ -332,88 +339,92 @@ def evaluation(hyp, images, labels, decoded_logits, losses, global_step):
 
     loss, accuracy, confidences_loss, boxes_loss = {}, {}, {}, {}
 
-    # Estimating Accuracy
-    for phase in ['train', 'val']:
+    with tf.name_scope("Evaluation"):
 
-        flags, confidences, boxes = labels[phase]
-        loss[phase], confidences_loss[phase], boxes_loss[phase] = losses[phase]
+        # Estimating Accuracy
+        for phase in ['train', 'val']:
 
-        (pred_boxes, pred_logits, pred_confidences,
-         pred_confs_deltas, pred_boxes_deltas) = decoded_logits[phase]
+            flags, confidences, boxes = labels[phase]
+            loss[phase], confidences_loss[phase], boxes_loss[phase] =\
+                losses[phase]
 
-        grid_size = hyp['grid_width'] * hyp['grid_height']
+            (pred_boxes, pred_logits, pred_confidences,
+             pred_confs_deltas, pred_boxes_deltas) = decoded_logits[phase]
 
-        pred_confidences_r = tf.reshape(
-            pred_confidences,
-            [hyp['batch_size'], grid_size, hyp['rnn_len'], hyp['num_classes']])
-        pred_boxes_r = tf.reshape(
-            pred_boxes, [hyp['batch_size'], grid_size, hyp['rnn_len'], 4])
+            grid_size = hyp['grid_width'] * hyp['grid_height']
 
-        # Set up summary operations for tensorboard
-        a = tf.equal(tf.argmax(confidences[:, :, 0, :], 2), tf.argmax(
-            pred_confidences_r[:, :, 0, :], 2))
-        accuracy[phase] = tf.reduce_mean(
-            tf.cast(a, 'float32'), name=phase+'/accuracy')
+            pred_confidences_r = tf.reshape(
+                pred_confidences,
+                [hyp['batch_size'], grid_size, hyp['rnn_len'],
+                 hyp['num_classes']])
+            pred_boxes_r = tf.reshape(
+                pred_boxes, [hyp['batch_size'], grid_size, hyp['rnn_len'], 4])
 
-    # Writing Metrics to Tensorboard
+            # Set up summary operations for tensorboard
+            a = tf.equal(tf.argmax(confidences[:, :, 0, :], 2), tf.argmax(
+                pred_confidences_r[:, :, 0, :], 2))
+            accuracy[phase] = tf.reduce_mean(
+                tf.cast(a, 'float32'), name=phase+'/accuracy')
 
-    moving_avg = tf.train.ExponentialMovingAverage(0.95)
-    smooth_op = moving_avg.apply([accuracy['train'], accuracy['val'],
-                                  confidences_loss[
-                                      'train'], boxes_loss['train'],
-                                  confidences_loss[
-                                      'val'], boxes_loss['val'],
-                                  ])
+        # Writing Metrics to Tensorboard
 
-    for p in ['train', 'val']:
-        tf.scalar_summary('%s/accuracy' % p, accuracy[p])
-        tf.scalar_summary('%s/accuracy/smooth' %
-                          p, moving_avg.average(accuracy[p]))
-        tf.scalar_summary("%s/confidences_loss" % p, confidences_loss[p])
-        tf.scalar_summary("%s/confidences_loss/smooth" % p,
-                          moving_avg.average(confidences_loss[p]))
-        tf.scalar_summary("%s/regression_loss" % p, boxes_loss[p])
-        tf.scalar_summary("%s/regression_loss/smooth" % p,
-                          moving_avg.average(boxes_loss[p]))
+        moving_avg = tf.train.ExponentialMovingAverage(0.95)
+        smooth_op = moving_avg.apply([accuracy['train'], accuracy['val'],
+                                      confidences_loss[
+                                          'train'], boxes_loss['train'],
+                                      confidences_loss[
+                                          'val'], boxes_loss['val'],
+                                      ])
 
-    test_image = images['val']
-    # show ground truth to verify labels are correct
-    test_true_confidences = confidences[0, :, :, :]
-    test_true_boxes = boxes[0, :, :, :]
+        for p in ['train', 'val']:
+            tf.scalar_summary('%s/accuracy' % p, accuracy[p])
+            tf.scalar_summary('%s/accuracy/smooth' %
+                              p, moving_avg.average(accuracy[p]))
+            tf.scalar_summary("%s/confidences_loss" % p, confidences_loss[p])
+            tf.scalar_summary("%s/confidences_loss/smooth" % p,
+                              moving_avg.average(confidences_loss[p]))
+            tf.scalar_summary("%s/regression_loss" % p, boxes_loss[p])
+            tf.scalar_summary("%s/regression_loss/smooth" % p,
+                              moving_avg.average(boxes_loss[p]))
 
-    # show predictions to visualize training progress
-    test_pred_confidences = pred_confidences_r[0, :, :, :]
-    test_pred_boxes = pred_boxes_r[0, :, :, :]
+        test_image = images['val']
+        # show ground truth to verify labels are correct
+        test_true_confidences = confidences[0, :, :, :]
+        test_true_boxes = boxes[0, :, :, :]
 
-    def log_image(np_img, np_confidences, np_boxes, np_global_step,
-                  pred_or_true):
+        # show predictions to visualize training progress
+        test_pred_confidences = pred_confidences_r[0, :, :, :]
+        test_pred_boxes = pred_boxes_r[0, :, :, :]
 
-        merged = train_utils.add_rectangles(hyp, np_img, np_confidences,
-                                            np_boxes,
-                                            use_stitching=True,
-                                            rnn_len=hyp['rnn_len'])[0]
+        def log_image(np_img, np_confidences, np_boxes, np_global_step,
+                      pred_or_true):
 
-        num_images = 10
+            merged = train_utils.add_rectangles(hyp, np_img, np_confidences,
+                                                np_boxes,
+                                                use_stitching=True,
+                                                rnn_len=hyp['rnn_len'])[0]
 
-        filename = '%s_%s.jpg' % \
-            ((np_global_step // hyp['logging']['display_iter'])
-                % num_images, pred_or_true)
-        img_path = os.path.join(hyp['dirs']['output_dir'], filename)
+            num_images = 10
 
-        scp.misc.imsave(img_path, merged)
-        return merged
+            filename = '%s_%s.jpg' % \
+                ((np_global_step // hyp['logging']['display_iter'])
+                    % num_images, pred_or_true)
+            img_path = os.path.join(hyp['dirs']['output_dir'], filename)
 
-    pred_log_img = tf.py_func(log_image,
-                              [test_image, test_pred_confidences,
-                               test_pred_boxes, global_step, 'pred'],
-                              [tf.float32])
-    true_log_img = tf.py_func(log_image,
-                              [test_image, test_true_confidences,
-                               test_true_boxes, global_step, 'true'],
-                              [tf.float32])
-    tf.image_summary(phase + '/pred_boxes', tf.pack(pred_log_img),
-                     max_images=10)
-    tf.image_summary(phase + '/true_boxes', tf.pack(true_log_img),
-                     max_images=10)
+            scp.misc.imsave(img_path, merged)
+            return merged
+
+        pred_log_img = tf.py_func(log_image,
+                                  [test_image, test_pred_confidences,
+                                   test_pred_boxes, global_step, 'pred'],
+                                  [tf.float32])
+        true_log_img = tf.py_func(log_image,
+                                  [test_image, test_true_confidences,
+                                   test_true_boxes, global_step, 'true'],
+                                  [tf.float32])
+        tf.image_summary(phase + '/pred_boxes', tf.pack(pred_log_img),
+                         max_images=10)
+        tf.image_summary(phase + '/true_boxes', tf.pack(true_log_img),
+                         max_images=10)
 
     return accuracy, smooth_op
