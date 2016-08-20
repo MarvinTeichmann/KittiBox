@@ -53,12 +53,12 @@ def _rezoom(hyp, pred_boxes, early_feat, early_feat_channels,
     rezoom_features_r = tf.reshape(rezoom_features,
                                    [len(w_offsets) * len(h_offsets),
                                     outer_size,
-                                    hyp['num_anchor'],
+                                    hyp['rnn_len'],
                                     early_feat_channels])
     rezoom_features_t = tf.transpose(rezoom_features_r, [1, 2, 0, 3])
     return tf.reshape(rezoom_features_t,
                       [outer_size,
-                       hyp['num_anchor'],
+                       hyp['rnn_len'],
                        len(w_offsets) * len(h_offsets) * early_feat_channels])
 
 
@@ -80,7 +80,7 @@ def apply_rezoom(hyp, phase, early_feat, raw_output, pred_box,
         w_offsets, h_offsets)
     if phase == 'train':
         rezoom_features = tf.nn.dropout(rezoom_features, 0.5)
-    for k in range(hyp['num_anchor']):
+    for k in range(hyp['rnn_len']):
         delta_features = tf.concat(
             1, [raw_output, rezoom_features[:, k, :] / 1000.])
         dim = 128
@@ -111,15 +111,15 @@ def apply_rezoom(hyp, phase, early_feat, raw_output, pred_box,
 
     # moved from loss
     pred_confs_deltas = tf.reshape(pred_confs_deltas,
-                                   [outer_size * hyp['num_anchor'],
+                                   [outer_size * hyp['rnn_len'],
                                     hyp['num_classes']])
 
     pred_logits_squash = tf.reshape(pred_confs_deltas,
-                                    [outer_size * hyp['num_anchor'],
+                                    [outer_size * hyp['rnn_len'],
                                      hyp['num_classes']])
     pred_confidences_squash = tf.nn.softmax(pred_logits_squash)
     pred_confidences = tf.reshape(pred_confidences_squash,
-                                  [outer_size, hyp['num_anchor'],
+                                  [outer_size, hyp['rnn_len'],
                                    hyp['num_classes']])
     if hyp['reregress']:
         pred_boxes_deltas = tf.concat(1, pred_boxes_deltas)
@@ -192,7 +192,7 @@ def decoder(hyp, logits, phase):
         pred_confidences = tf.nn.softmax(pred_logits)
 
         pred_confidences = tf.reshape(pred_confidences,
-                                      [outer_size, hyp['num_anchor'],
+                                      [outer_size, hyp['rnn_len'],
                                        hyp['num_classes']])
 
         if hyp['use_rezoom']:
@@ -216,16 +216,16 @@ def _computed_shaped_labels(hypes, labels, phase):
     outer_size = grid_size * hypes['batch_size']
     with tf.variable_scope('Label_Reshape',
                            reuse={'train': None, 'val': True}[phase]):
-        outer_boxes = tf.reshape(boxes, [outer_size, hypes['num_anchor'], 4])
+        outer_boxes = tf.reshape(boxes, [outer_size, hypes['rnn_len'], 4])
         outer_flags = tf.cast(
-            tf.reshape(flags, [outer_size, hypes['num_anchor']]), 'int32')
+            tf.reshape(flags, [outer_size, hypes['rnn_len']]), 'int32')
 
         classes = tf.reshape(flags, (outer_size, 1))
         gt_box = tf.reshape(outer_boxes, (outer_size, 1, 4))
         box_mask = tf.reshape(
             tf.cast(tf.greater(classes, 0), 'float32'), (outer_size, 1, 1))
         true_classes = tf.reshape(tf.cast(tf.greater(classes, 0), 'int64'),
-                                  [outer_size * hypes['num_anchor']])
+                                  [outer_size * hypes['rnn_len']])
 
     return gt_box, box_mask, true_classes, classes
 
@@ -264,7 +264,7 @@ def _compute_rezoom_loss(hypes, gt_box, box_mask, classes, pred_boxes,
         delta_unshaped = gt_box - (pred_boxes + pred_boxes_deltas)
 
         delta_residual = tf.reshape(delta_unshaped * box_mask,
-                                    [outer_size, hypes['num_anchor'], 4])
+                                    [outer_size, hypes['rnn_len'], 4])
         sqrt_delta = tf.minimum(tf.square(delta_residual), 10. ** 2)
         delta_boxes_loss = (tf.reduce_sum(sqrt_delta) /
                             outer_size * head[1] * 0.03)
@@ -314,7 +314,7 @@ def loss(hypes, decoded_logits, labels, phase):
         confidences_loss = tf.reduce_mean(cross_entropy) * head[0]
 
         residual = tf.reshape(gt_box - pred_boxes * box_mask,
-                              [outer_size, hypes['num_anchor'], 4])
+                              [outer_size, hypes['rnn_len'], 4])
 
         boxes_loss = tf.reduce_sum(tf.abs(residual)) / outer_size * head[1]
 
@@ -355,10 +355,10 @@ def evaluation(hyp, images, labels, decoded_logits, losses, global_step):
 
             pred_confidences_r = tf.reshape(
                 pred_confidences,
-                [hyp['batch_size'], grid_size, hyp['num_anchor'],
+                [hyp['batch_size'], grid_size, hyp['rnn_len'],
                  hyp['num_classes']])
             pred_boxes_r = tf.reshape(
-                pred_boxes, [hyp['batch_size'], grid_size, hyp['num_anchor'],
+                pred_boxes, [hyp['batch_size'], grid_size, hyp['rnn_len'],
                              4])
 
             # Set up summary operations for tensorboard
@@ -403,7 +403,7 @@ def evaluation(hyp, images, labels, decoded_logits, losses, global_step):
             merged = train_utils.add_rectangles(hyp, np_img, np_confidences,
                                                 np_boxes,
                                                 use_stitching=True,
-                                                rnn_len=hyp['num_anchor'])[0]
+                                                rnn_len=hyp['rnn_len'])[0]
 
             num_images = 10
 
