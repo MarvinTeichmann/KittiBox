@@ -30,6 +30,7 @@
         "head_weights": [1.0, 0.1],
         "max_steps": 150000
     },
+    "fc_size": 6,
     "use_lstm": false,
     "use_rezoom": true,
     "biggest_box_px": 10000,

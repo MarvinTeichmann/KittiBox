@@ -157,7 +157,9 @@ def decoder(hyp, logits, phase):
     Return:
       decoded_logits: values which can be interpreted as bounding boxes
     """
-    cnn_output, early_feat, _ = logits
+    cnn_output = logits['deep_feat']
+    early_feat = logits['early_feat']
+    hyp['cnn_channels'] = logits['deep_feat_channels']
 
     grid_size = hyp['grid_width'] * hyp['grid_height']
     outer_size = grid_size * hyp['batch_size']
