@@ -11,8 +11,8 @@ import scipy.misc
 
 def annotation_to_h5(H, a, cell_width, cell_height, max_len):
     region_size = H['region_size']
-    assert H['region_size'] == H['image_height'] / H['grid_height']
-    assert H['region_size'] == H['image_width'] / H['grid_width']
+    # assert H['region_size'] == H['image_height'] / H['grid_height']
+    # assert H['region_size'] == H['image_width'] / H['grid_width']
     cell_regions = get_cell_grid(cell_width, cell_height, region_size)
 
     cells_per_image = len(cell_regions)
