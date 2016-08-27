@@ -252,7 +252,7 @@ def decoder(hyp, logits, phase):
             rezoomed_feat = _apply_simple_rezoom(hyp, phase,
                                                  scored_feat,
                                                  early_feat)
-            with tf.name_scope("Add rezoomed"):
+            with tf.name_scope("add_rezoomed"):
                 scored_feat = scored_feat + 0.1 * rezoomed_feat
             print("Zoom added.")
 
