@@ -3,7 +3,7 @@
     "input_file": "../inputs/idl_input.py",
     "architecture_file" : "../encoder/vgg.py",
     "objective_file" : "../decoder/fast_box.py",
-    "optimizer_file" : "../optimizer/clip_optimizer.py",
+    "optimizer_file" : "../optimizer/generic_optimizer.py",
     "evaluator_file" : "../inputs/cars_eval.py"
     },
     "data": {
@@ -12,9 +12,11 @@
         "truncate_data": false
     },
     "logging": {
-        "display_iter": 50,
-        "eval_iter": 500,
-        "save_iter": 10000
+        "display_iter": 200,
+        "eval_iter": 1000,
+        "write_iter": 800,
+        "save_iter": 2000,
+        "image_iter": 10000
     },
     "path": ["../incl"],
     "solver": {
@@ -22,7 +24,7 @@
         "use_jitter": false,
         "rnd_seed": 1,
         "epsilon": 0.00001, 
-        "learning_rate": 1e-4, 
+        "learning_rate": 1e-5, 
         "learning_rate_step": null, 
         "hungarian_iou": 0.25,
         "batch_size": 1,
@@ -33,7 +35,7 @@
     "fc_size": 6,
     "use_lstm": false,
     "use_rezoom": false,
-    "simple_zoom": true,
+    "simple_zoom": false,
     "biggest_box_px": 10000,
     "rezoom_change_loss": "center",
     "rezoom_w_coords": [-0.25, 0.25],

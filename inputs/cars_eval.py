@@ -62,8 +62,10 @@ def evaluate(hypes, sess, image_pl, softmax):
     return eval_list, image_list
 
 
-def get_results(hypes, sess, image_pl, softmax):
-    pred_boxes, pred_confidences = softmax
+def get_results(hypes, sess, image_pl, decoded_logits):
+
+    pred_boxes = decoded_logits['pred_boxes']
+    pred_confidences = decoded_logits['pred_confidences']
 
     # Build Placeholder
     shape = [hypes['image_height'], hypes['image_width'], 3]

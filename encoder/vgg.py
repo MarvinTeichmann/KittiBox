@@ -7,7 +7,7 @@ from tensorflow_fcn import fcn8_vgg
 import tensorflow as tf
 
 
-def inference(hypes, images, phase='train'):
+def inference(hypes, images, train=True):
     """Build the MNIST model up to where it may be used for inference.
 
     Args:
@@ -17,15 +17,12 @@ def inference(hypes, images, phase='train'):
     Returns:
       softmax_linear: Output tensor with the computed logits.
     """
-    train = (phase == 'train')
     vgg_fcn = fcn8_vgg.FCN8VGG()
 
-    if not train:
-        tf.get_variable_scope().reuse_variables()
-
     num_classes = hypes["fc_size"]
-    vgg_fcn.build(images, train=train, num_classes=num_classes,
-                  random_init_fc8=True)
+    with tf.name_scope("VGG"):
+        vgg_fcn.build(images, train=train, num_classes=num_classes,
+                      random_init_fc8=True)
 
     vgg_dict = {'deep_feat': vgg_fcn.pool5,
                 'deep_feat_channels': 512,
