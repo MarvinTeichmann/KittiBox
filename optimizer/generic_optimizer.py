@@ -22,7 +22,7 @@ def get_learning_rate(hypes, step):
             return hypes['solver']['learning_rates'][i]
 
 
-def training(hypes, total_loss, global_step, learning_rate):
+def training(hypes, loss, global_step, learning_rate):
     """Sets up the training Ops.
 
     Creates a summarizer to track the loss over time in TensorBoard.
@@ -45,16 +45,8 @@ def training(hypes, total_loss, global_step, learning_rate):
     sol = hypes["solver"]
     hypes['tensors'] = {}
     hypes['tensors']['global_step'] = global_step
+    total_loss = loss
     with tf.name_scope('training'):
-
-        tvars = tf.trainable_variables()
-        if hypes['clip_norm'] <= 0:
-            grads = tf.gradients(total_loss, tvars)
-        else:
-            grads, norm = tf.clip_by_global_norm(tf.gradients(total_loss,
-                                                 tvars), hypes['clip_norm'])
-
-        to_opt = zip(grads, tvars)
 
         if sol['opt'] == 'RMS':
             opt = tf.train.RMSPropOptimizer(learning_rate=learning_rate,
@@ -68,6 +60,14 @@ def training(hypes, total_loss, global_step, learning_rate):
         else:
             raise ValueError('Unrecognized opt type')
 
-        train_op = opt.apply_gradients(to_opt, global_step=global_step)
+        grads_and_vars = opt.compute_gradients(loss)
+
+        if hypes['clip_norm'] > 0:
+            grads, tvars = zip(*grads_and_vars)
+            clip_norm = hypes["clip_norm"]
+            clipped_grads, norm = tf.clip_by_global_norm(grads, clip_norm)
+            grads_and_vars = zip(clipped_grads, tvars)
+
+        train_op = opt.apply_gradients(grads_and_vars, global_step=global_step)
 
     return train_op
