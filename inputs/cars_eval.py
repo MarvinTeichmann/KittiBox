@@ -64,7 +64,7 @@ def evaluate(hypes, sess, image_pl, softmax):
 
 def get_results(hypes, sess, image_pl, decoded_logits):
 
-    pred_boxes = decoded_logits['pred_boxes']
+    pred_boxes = decoded_logits['pred_boxes_new']
     pred_confidences = decoded_logits['pred_confidences']
 
     # Build Placeholder
