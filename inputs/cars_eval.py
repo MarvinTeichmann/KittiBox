@@ -17,6 +17,7 @@ import numpy as np
 import tensorflow as tf
 
 import utils.train_utils
+import time
 
 from utils.annolist import AnnotationLib as AnnLib
 
@@ -44,8 +45,10 @@ def write_rects(rects, filename):
 
 
 def evaluate(hypes, sess, image_pl, softmax):
-    pred_annolist, true_annolist, image_list = get_results(hypes, sess,
-                                                           image_pl, softmax)
+    pred_annolist, true_annolist, image_list, dt, dt2 = get_results(hypes,
+                                                                    sess,
+                                                                    image_pl,
+                                                                    softmax)
 
     val_path = make_val_dir(hypes)
     subprocess.check_call(["evaluate_object", val_path])
@@ -59,12 +62,19 @@ def evaluate(hypes, sess, image_pl, softmax):
             mean = np.mean(result)
             eval_list.append((mode, mean))
 
+    eval_list.append(('Speed (msec)', 1000*dt))
+    eval_list.append(('Speed (fps)', 1/dt))
+    eval_list.append(('Post (msec)', 1000*dt2))
+
     return eval_list, image_list
 
 
 def get_results(hypes, sess, image_pl, decoded_logits):
 
-    pred_boxes = decoded_logits['pred_boxes_new']
+    if hypes['use_rezoom']:
+        pred_boxes = decoded_logits['pred_boxes_new']
+    else:
+        pred_boxes = decoded_logits['pred_boxes']
     pred_confidences = decoded_logits['pred_confidences']
 
     # Build Placeholder
@@ -125,4 +135,20 @@ def get_results(hypes, sess, image_pl, decoded_logits):
 
         image_list = []
 
-    return pred_annolist, true_annolist, image_list
+    start_time = time.time()
+    for i in xrange(100):
+        (np_pred_boxes, np_pred_confidences) = sess.run([pred_boxes,
+                                                         pred_confidences],
+                                                        feed_dict=feed)
+    dt = (time.time() - start_time)/100
+
+    start_time = time.time()
+    for i in xrange(100):
+        utils.train_utils.compute_rectangels(
+            hypes, np_pred_confidences,
+            np_pred_boxes, show_removed=False,
+            use_stitching=True, rnn_len=hypes['rnn_len'],
+            min_conf=0.001, tau=hypes['tau'])
+    dt2 = (time.time() - start_time)/100
+
+    return pred_annolist, true_annolist, image_list, dt, dt2

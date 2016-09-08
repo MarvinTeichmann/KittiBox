@@ -278,7 +278,8 @@ def decoder(hyp, logits, train):
 
     dlogits['pred_confs_deltas'] = pred_confs_deltas
     dlogits['pred_boxes_deltas'] = pred_boxes_deltas
-    dlogits['pred_boxes_new'] = pred_boxes + pred_boxes_deltas
+    if hyp['reregress'] and hyp['use_rezoom']:
+        dlogits['pred_boxes_new'] = pred_boxes + pred_boxes_deltas
 
     return dlogits
 
@@ -396,8 +397,9 @@ def loss(hypes, decoded_logits, labels):
     losses['confidences_loss'] = confidences_loss
     losses['boxes_loss'] = boxes_loss
     losses['weight_loss'] = total_loss - loss
-    losses['delta_boxes_loss'] = delta_boxes_loss
-    losses['delta_confs_loss'] = delta_confs_loss
+    if hypes['reregress']:
+        losses['delta_boxes_loss'] = delta_boxes_loss
+        losses['delta_confs_loss'] = delta_confs_loss
 
     return losses
 
@@ -423,8 +425,9 @@ def evaluation(hyp, images, labels, decoded_logits, losses, global_step):
     eval_list.append(('Conf', losses['confidences_loss']))
     eval_list.append(('Box', losses['boxes_loss']))
     eval_list.append(('Weight', losses['weight_loss']))
-    eval_list.append(('Delta', losses['delta_boxes_loss'] +
-                      losses['delta_confs_loss']))
+    if hyp['reregress']:
+        eval_list.append(('Delta', losses['delta_boxes_loss'] +
+                          losses['delta_confs_loss']))
 
     # Log Images
     # show ground truth to verify labels are correct
