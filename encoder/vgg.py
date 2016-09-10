@@ -20,6 +20,7 @@ def inference(hypes, images, train=True):
     vgg_fcn = fcn8_vgg.FCN8VGG()
 
     num_classes = hypes["fc_size"]
+    vgg_fcn.wd = hypes['wd']
 
     vgg_fcn.build(images, train=train, num_classes=num_classes,
                   random_init_fc8=True)
