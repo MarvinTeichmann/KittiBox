@@ -20,9 +20,10 @@ def inference(hypes, images, train=True):
     vgg_fcn = fcn8_vgg.FCN8VGG()
 
     num_classes = hypes["fc_size"]
-    with tf.name_scope("VGG"):
-        vgg_fcn.build(images, train=train, num_classes=num_classes,
-                      random_init_fc8=True)
+    vgg_fcn.wd = hypes['wd']
+
+    vgg_fcn.build(images, train=train, num_classes=num_classes,
+                  random_init_fc8=True)
 
     vgg_dict = {'unpooled': vgg_fcn.conv5_3,
                 'deep_feat': vgg_fcn.pool5,

@@ -409,15 +409,17 @@ def loss(hypes, decoded_logits, labels):
     else:
         loss = confidences_loss + boxes_loss
 
-    tf.add_to_collection('losses', loss)
+    # tf.add_to_collection('losses', loss)
 
-    total_loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
+    weight_loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
+
+    total_loss = weight_loss + loss
 
     losses = {}
     losses['total_loss'] = total_loss
     losses['confidences_loss'] = confidences_loss
     losses['boxes_loss'] = boxes_loss
-    losses['weight_loss'] = total_loss - loss
+    losses['weight_loss'] = weight_loss
     if hypes['reregress']:
         losses['delta_boxes_loss'] = delta_boxes_loss
         losses['delta_confs_loss'] = delta_confs_loss
