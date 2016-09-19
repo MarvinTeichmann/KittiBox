@@ -25,7 +25,8 @@ def inference(hypes, images, train=True):
     vgg_fcn.build(images, train=train, num_classes=num_classes,
                   random_init_fc8=True)
 
-    vgg_dict = {'deep_feat': vgg_fcn.pool5,
+    vgg_dict = {'unpooled': vgg_fcn.conv5_3,
+                'deep_feat': vgg_fcn.pool5,
                 'deep_feat_channels': 512,
                 'early_feat': vgg_fcn.conv4_3,
                 'scored_feat': vgg_fcn.score_fr}

@@ -28,7 +28,7 @@ def _deconv(x, output_shape, channels):
                         initializer=tf.random_normal_initializer(stddev=0.01),
                         shape=[k_h, k_w, channels[1], channels[0]])
     y = tf.nn.conv2d_transpose(x, w, output_shape, strides=[1, k_h, k_w, 1],
-                               padding='VALID')
+                               padding='SAME')
     return y
 
 
@@ -117,6 +117,25 @@ def _build_overfeat_inner(hyp, lstm_input):
     return outputs
 
 
+def _build_fc_inner(hyp, lstm_input):
+    '''
+    build simple overfeat decoder
+    '''
+    if hyp['rnn_len'] > 1:
+        raise ValueError('rnn_len > 1 only supported with use_lstm == True')
+    outputs = []
+    grid_size = hyp['grid_width'] * hyp['grid_height']
+    outer_size = grid_size * hyp['batch_size']
+    initializer = tf.random_uniform_initializer(-0.1, 0.1)
+    lstm_input = tf.reshape(lstm_input, [hyp['batch_size'],
+                            grid_size*hyp['cnn_channels']])
+    with tf.variable_scope('Overfeat', initializer=initializer):
+        w = tf.get_variable('ip', shape=[grid_size*hyp['cnn_channels'],
+                                         hyp['lstm_size']])
+        outputs.append(tf.matmul(lstm_input, w))
+    return outputs
+
+
 def decoder(hyp, logits, train):
     """Apply decoder to the logits.
 
@@ -146,7 +165,9 @@ def decoder(hyp, logits, train):
 
         with tf.variable_scope("deconv"):
             initializer = tf.random_normal_initializer(stddev=0.01)
-            w = tf.get_variable('conv_pool_w', shape=[size, size, 1024, 1024],
+            w = tf.get_variable('conv_pool_w', shape=[size, size,
+                                                      hyp['cnn_channels'],
+                                                      hyp['cnn_channels']],
                                 initializer=initializer)
             cnn_s = tf.nn.conv2d(cnn, w, strides=[1, stride, stride, 1],
                                  padding='SAME')
@@ -159,7 +180,7 @@ def decoder(hyp, logits, train):
                             hyp['grid_width'], 256]
             cnn_deconv = _deconv(
                 cnn_s_with_pool, output_shape=output_shape,
-                channels=[1024, 256])
+                channels=[hyp['cnn_channels'], 256])
             cnn = tf.concat(3, (cnn_deconv, cnn[:, :, :, 256:]))
 
     elif hyp['avg_pool_size'] > 1:
@@ -179,8 +200,8 @@ def decoder(hyp, logits, train):
         scale_down = 0.01
         lstm_input = tf.reshape(
             cnn * scale_down, (hyp['batch_size'] * grid_size, channels))
-        if hyp['use_lstm']:
-            lstm_outputs = _build_lstm_inner(hyp, lstm_input)
+        if hyp['use_fc']:
+            lstm_outputs = _build_fc_inner(hyp, lstm_input)
         else:
             lstm_outputs = _build_overfeat_inner(hyp, lstm_input)
 
