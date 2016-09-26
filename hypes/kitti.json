@@ -33,6 +33,8 @@
         "max_steps": 180000
     },
     "fc_size": 2,
+    "use_fc": false,
+    "unpooled": false,
     "use_lstm": false,
     "use_rezoom": true,
     "biggest_box_px": 10000,
