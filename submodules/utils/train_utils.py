@@ -1,4 +1,4 @@
-import numpy as np
+\import numpy as np
 import random
 import json
 import os
@@ -104,8 +104,10 @@ def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_l
     else:
         acc_rects = all_rects_r
 
+    if not show_removed:
+        all_rects_r = []
 
-    pairs = [(all_rects_r, (255, 0, 0)), (acc_rects, (0, 255, 0))]
+    pairs = [(all_rects_r, (255, 0, 0)), (acc_rects, (0, 0, 255))]
     im = Image.fromarray(image.astype('uint8'))
     draw = ImageDraw.Draw(im)
     for rect_set, color in pairs:

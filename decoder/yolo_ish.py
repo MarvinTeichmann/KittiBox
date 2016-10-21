@@ -61,7 +61,6 @@ def _rezoom(hyp, pred_boxes, early_feat, early_feat_channels,
                                                        early_feat,
                                                        early_feat_channels,
                                                        w_offset, h_offset))
-
     interp_indices = tf.concat(0, indices)
     rezoom_features = train_utils.interp(early_feat,
                                          interp_indices,
@@ -157,6 +156,9 @@ def decoder(hyp, logits, train):
 
     early_feat_channels = hyp['early_feat_channels']
     early_feat = early_feat[:, :, :, :early_feat_channels]
+
+    if hyp['unpooled']:
+        cnn = logits['unpooled']
 
     if hyp['deconv']:
         size = 3
