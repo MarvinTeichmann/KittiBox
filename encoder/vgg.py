@@ -5,6 +5,7 @@ from __future__ import print_function
 from tensorflow_fcn import fcn8_vgg
 
 import tensorflow as tf
+import os
 
 
 def inference(hypes, images, train=True):
