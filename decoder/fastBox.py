@@ -65,13 +65,12 @@ def _build_hidden_layer(hyp, hidden_input):
     '''
     build an 1x1 conv layer
     '''
-    outputs = []
     initializer = tf.random_uniform_initializer(-0.1, 0.1)
     with tf.variable_scope('Overfeat', initializer=initializer):
         w = tf.get_variable('ip', shape=[hyp['cnn_channels'],
                                          hyp['num_inner_channel']])
-        outputs.append(tf.matmul(hidden_input, w))
-    return outputs
+        output = tf.matmul(hidden_input, w)
+    return output
 
 
 def decoder(hyp, logits, train):
@@ -108,32 +107,27 @@ def decoder(hyp, logits, train):
         hidden_input = tf.reshape(
             cnn * scale_down, (hyp['batch_size'] * grid_size, channels))
 
-        hidden_outputs = _build_hidden_layer(hyp, hidden_input)
+        hidden_output = _build_hidden_layer(hyp, hidden_input)
 
-        pred_boxes = []
-        pred_logits = []
-        for k in range(hyp['rnn_len']):
-            output = hidden_outputs[k]
-            if train:
-                output = tf.nn.dropout(output, 0.5)
-            box_weights = tf.get_variable('box_ip%d' % k,
-                                          shape=(hyp['num_inner_channel'], 4))
-            conf_weights = tf.get_variable('conf_ip%d' % k,
-                                           shape=(hyp['num_inner_channel'],
-                                                  hyp['num_classes']))
+        if train:
+            hidden_output = tf.nn.dropout(hidden_output, 0.5)
+        box_weights = tf.get_variable('box_out',
+                                      shape=(hyp['num_inner_channel'], 4))
+        conf_weights = tf.get_variable('confs_out',
+                                       shape=(hyp['num_inner_channel'],
+                                              hyp['num_classes']))
 
-            pred_boxes_step = tf.reshape(tf.matmul(output, box_weights) * 50,
-                                         [outer_size, 1, 4])
+        pred_boxes = tf.reshape(tf.matmul(hidden_output, box_weights) * 50,
+                                [outer_size, 1, 4])
 
-            pred_boxes.append(pred_boxes_step)
-            pred_logits.append(tf.reshape(tf.matmul(output, conf_weights),
-                                          [outer_size, 1, hyp['num_classes']]))
+        # hyp['rnn_len']
+        pred_logits = tf.reshape(tf.matmul(hidden_output, conf_weights),
+                                 [outer_size, 1, hyp['num_classes']])
 
-        pred_boxes = tf.concat_v2(axis=1, values=pred_boxes)
-        pred_logits = tf.concat_v2(axis=1, values=pred_logits)
         pred_logits_squash = tf.reshape(pred_logits,
-                                        [outer_size * hyp['rnn_len'],
+                                        [outer_size,
                                          hyp['num_classes']])
+
         pred_confidences_squash = tf.nn.softmax(pred_logits_squash)
         pred_confidences = tf.reshape(pred_confidences_squash,
                                       [outer_size, hyp['rnn_len'],
@@ -153,7 +147,7 @@ def decoder(hyp, logits, train):
             for k in range(hyp['rnn_len']):
                 delta_features = tf.concat_v2(
                     axis=1,
-                    values=[hidden_outputs[k],
+                    values=[hidden_output,
                             rezoom_features[:, k, :] / 1000.])
                 dim = 128
                 shape = [hyp['num_inner_channel'] +
