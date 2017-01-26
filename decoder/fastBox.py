@@ -141,8 +141,6 @@ def _build_rezoom_layer(hyp, rezoom_input, train):
     early_feat_channels = hyp['early_feat_channels']
     early_feat = early_feat[:, :, :, :early_feat_channels]
 
-    pred_confs_deltas = []
-    pred_boxes_deltas = []
     w_offsets = hyp['rezoom_w_coords']
     h_offsets = hyp['rezoom_h_coords']
     num_offsets = len(w_offsets) * len(h_offsets)
@@ -151,53 +149,43 @@ def _build_rezoom_layer(hyp, rezoom_input, train):
         w_offsets, h_offsets)
     if train:
         rezoom_features = tf.nn.dropout(rezoom_features, 0.5)
-    for k in range(hyp['rnn_len']):
-        delta_features = tf.concat_v2(
-            axis=1,
-            values=[hidden_output,
-                    rezoom_features[:, k, :] / 1000.])
-        dim = 128
-        shape = [hyp['num_inner_channel'] +
-                 early_feat_channels * num_offsets,
-                 dim]
-        delta_weights1 = tf.get_variable('delta_ip1%d' % k,
-                                         shape=shape)
-        # TODO: maybe adding dropout here?
-        ip1 = tf.nn.relu(tf.matmul(delta_features, delta_weights1))
-        if train:
-            ip1 = tf.nn.dropout(ip1, 0.5)
-        delta_confs_weights = tf.get_variable(
-            'delta_ip2%d' % k,
-            shape=[dim, hyp['num_classes']])
-        delta_boxes_weights = tf.get_variable(
-            'delta_ip_boxes%d' % k,
-            shape=[dim, 4])
-        rere_feature = tf.matmul(ip1, delta_boxes_weights) * 5
-        pred_boxes_deltas.append(tf.reshape(rere_feature,
-                                            [outer_size, 1, 4]))
-        scale = hyp.get('rezoom_conf_scale', 50)
-        feature2 = tf.matmul(ip1, delta_confs_weights) * scale
-        pred_confs_deltas.append(tf.reshape(feature2,
-                                            [outer_size, 1,
-                                             hyp['num_classes']]))
-    pred_confs_deltas = tf.concat_v2(axis=1, values=pred_confs_deltas)
 
-    # moved from loss
-    pred_confs_deltas = tf.reshape(pred_confs_deltas,
-                                   [outer_size * hyp['rnn_len'],
-                                    hyp['num_classes']])
+    delta_features = tf.concat_v2(
+        axis=1,
+        values=[hidden_output,
+                rezoom_features[:, 1, :] / 1000.])
+    dim = 128
+    shape = [hyp['num_inner_channel'] +
+             early_feat_channels * num_offsets,
+             dim]
+    delta_weights1 = tf.get_variable('delta1',
+                                     shape=shape)
+    # TODO: maybe adding dropout here?
+    ip1 = tf.nn.relu(tf.matmul(delta_features, delta_weights1))
+    if train:
+        ip1 = tf.nn.dropout(ip1, 0.5)
+    delta_confs_weights = tf.get_variable(
+        'delta2', shape=[dim, hyp['num_classes']])
+    delta_boxes_weights = tf.get_variable('delta_boxes', shape=[dim, 4])
 
-    pred_logits_squash = tf.reshape(pred_confs_deltas,
-                                    [outer_size * hyp['rnn_len'],
-                                     hyp['num_classes']])
-    pred_confidences_squash = tf.nn.softmax(pred_logits_squash)
+    rere_feature = tf.matmul(ip1, delta_boxes_weights) * 5
+    pred_boxes_delta = (tf.reshape(rere_feature, [outer_size, 1, 4]))
+
+    scale = hyp.get('rezoom_conf_scale', 50)
+    feature2 = tf.matmul(ip1, delta_confs_weights) * scale
+    pred_confs_delta = tf.reshape(feature2, [outer_size, 1,
+                                  hyp['num_classes']])
+
+    pred_confs_delta = tf.reshape(pred_confs_delta,
+                                  [outer_size, hyp['num_classes']])
+
+    pred_confidences_squash = tf.nn.softmax(pred_confs_delta)
     pred_confidences = tf.reshape(pred_confidences_squash,
                                   [outer_size, hyp['rnn_len'],
                                    hyp['num_classes']])
-    pred_boxes_deltas = tf.concat_v2(axis=1,
-                                     values=pred_boxes_deltas)
+
     return pred_boxes, pred_logits, pred_confidences, \
-        pred_confs_deltas, pred_boxes_deltas
+        pred_confs_delta, pred_boxes_delta
 
 
 def decoder(hyp, logits, train):
@@ -436,5 +424,4 @@ def evaluation(hyp, images, labels, decoded_logits, losses, global_step):
                               [tf.float32])
     tf.summary.image('/pred_boxes', tf.stack(pred_log_img))
     tf.summary.image('/true_boxes', tf.stack(true_log_img))
-
     return eval_list
