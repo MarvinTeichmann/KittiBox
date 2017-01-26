@@ -21,7 +21,7 @@ def inference(hypes, images, train=True):
     vgg16_npy_path = os.path.join(hypes['dirs']['data_dir'], "vgg16.npy")
     vgg_fcn = fcn8_vgg.FCN8VGG(vgg16_npy_path=vgg16_npy_path)
 
-    num_classes = hypes["fc_size"]
+    num_classes = 2  # does not influence training what so ever
     vgg_fcn.wd = hypes['wd']
 
     vgg_fcn.build(images, train=train, num_classes=num_classes,

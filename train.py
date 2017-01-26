@@ -39,7 +39,7 @@ flags.DEFINE_string('name', None,
 flags.DEFINE_string('project', None,
                     'Append a name Tag to run.')
 
-flags.DEFINE_string('hypes', 'hypes/kitti.json',
+flags.DEFINE_string('hypes', 'hypes/kittiBox.json',
                     'File storing model parameters.')
 
 tf.app.flags.DEFINE_boolean(
