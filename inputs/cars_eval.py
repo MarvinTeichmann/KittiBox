@@ -19,11 +19,16 @@ import tensorflow as tf
 import utils.train_utils
 import time
 
+import random
+
 from utils.annolist import AnnotationLib as AnnLib
 
 
-def make_val_dir(hypes):
-    val_dir = os.path.join(hypes['dirs']['output_dir'], 'val_out')
+def make_val_dir(hypes, validation=True):
+    if validation:
+        val_dir = os.path.join(hypes['dirs']['output_dir'], 'val_out')
+    else:
+        val_dir = os.path.join(hypes['dirs']['output_dir'], 'train_out')
     if not os.path.exists(val_dir):
         os.mkdir(val_dir)
     return val_dir
@@ -48,10 +53,11 @@ def evaluate(hypes, sess, image_pl, softmax):
     pred_annolist, true_annolist, image_list, dt, dt2 = get_results(hypes,
                                                                     sess,
                                                                     image_pl,
-                                                                    softmax)
+                                                                    softmax,
+                                                                    True)
 
     val_path = make_val_dir(hypes)
-    subprocess.check_call(["evaluate_object", val_path])
+    subprocess.check_call(["evaluate_object2", val_path])
     res_file = os.path.join(val_path, "stats_car_detection.txt")
 
     eval_list = []
@@ -60,16 +66,33 @@ def evaluate(hypes, sess, image_pl, softmax):
             line = f.readline()
             result = np.array(line.rstrip().split(" ")).astype(float)
             mean = np.mean(result)
-            eval_list.append((mode, mean))
+            eval_list.append(("val   " + mode, mean))
 
     eval_list.append(('Speed (msec)', 1000*dt))
     eval_list.append(('Speed (fps)', 1/dt))
     eval_list.append(('Post (msec)', 1000*dt2))
 
+    pred_annolist, true_annolist, image_list2, dt, dt2 = get_results(hypes,
+                                                                     sess,
+                                                                     image_pl,
+                                                                     softmax,
+                                                                     False)
+
+    val_path = make_val_dir(hypes, False)
+    subprocess.check_call(["evaluate_object2", val_path])
+    res_file = os.path.join(val_path, "stats_car_detection.txt")
+
+    with open(res_file) as f:
+        for mode in ['easy', 'medium', 'hard']:
+            line = f.readline()
+            result = np.array(line.rstrip().split(" ")).astype(float)
+            mean = np.mean(result)
+            eval_list.append(("train   " + mode, mean))
+
     return eval_list, image_list
 
 
-def get_results(hypes, sess, image_pl, decoded_logits):
+def get_results(hypes, sess, image_pl, decoded_logits, validation=True):
 
     if hypes['use_rezoom']:
         pred_boxes = decoded_logits['pred_boxes_new']
@@ -81,17 +104,23 @@ def get_results(hypes, sess, image_pl, decoded_logits):
     shape = [hypes['image_height'], hypes['image_width'], 3]
 
     pred_annolist = AnnLib.AnnoList()
-    test_idl = os.path.join(hypes['dirs']['data_dir'],
-                            hypes['data']['val_idl'])
+    if validation:
+        test_idl = os.path.join(hypes['dirs']['data_dir'],
+                                hypes['data']['val_idl'])
+    else:
+        test_idl = os.path.join(hypes['dirs']['data_dir'],
+                                hypes['data']['train_idl'])
     true_annolist = AnnLib.parse(test_idl)
 
     data_dir = os.path.dirname(test_idl)
-    val_dir = make_val_dir(hypes)
+    val_dir = make_val_dir(hypes, validation)
     img_dir = make_img_dir(hypes)
 
     image_list = []
 
     for i in range(len(true_annolist)):
+        if not validation and random.random() > 0.2:
+                continue
         true_anno = true_annolist[i]
         orig_img = scp.misc.imread('%s/%s' % (data_dir,
                                               true_anno.imageName))[:, :, :3]
@@ -108,9 +137,9 @@ def get_results(hypes, sess, image_pl, decoded_logits):
             hypes, [img], np_pred_confidences,
             np_pred_boxes, show_removed=False,
             use_stitching=True, rnn_len=hypes['rnn_len'],
-            min_conf=0.001, tau=hypes['tau'])
+            min_conf=0.50, tau=hypes['tau'])
 
-        if i % 15 == 0:
+        if validation and i % 15 == 0:
             image_name = os.path.basename(pred_anno.imageName)
             image_name = os.path.join(img_dir, image_name)
             scp.misc.imsave(image_name, new_img)

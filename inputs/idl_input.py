@@ -23,6 +23,8 @@ from utils.data_utils import (annotation_jitter, annotation_to_h5)
 from utils.annolist import AnnotationLib as AnnoLib
 from utils.rect import Rect
 
+import threading
+
 
 def _rescale_boxes(current_shape, anno, target_height, target_width):
     x_scale = target_width / float(current_shape[1])
@@ -153,8 +155,8 @@ def start_enqueuing_threads(hypes, q, phase, sess):
     gen = _load_data_gen(hypes, phase, jitter=hypes['solver']['use_jitter'])
     d = gen.next()
     sess.run(enqueue_op, feed_dict=make_feed(d))
-    t = tf.train.threading.Thread(target=thread_loop,
-                                  args=(sess, enqueue_op, gen))
+    t = threading.Thread(target=thread_loop,
+                         args=(sess, enqueue_op, gen))
     t.daemon = True
     t.start()
 

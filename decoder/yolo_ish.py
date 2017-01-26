@@ -15,11 +15,6 @@ from utils import train_utils
 
 import tensorflow as tf
 
-try:
-    from tensorflow.models.rnn import rnn_cell
-except ImportError:
-    rnn_cell = tf.nn.rnn_cell
-
 
 def _deconv(x, output_shape, channels):
     k_h = 2
@@ -61,7 +56,7 @@ def _rezoom(hyp, pred_boxes, early_feat, early_feat_channels,
                                                        early_feat,
                                                        early_feat_channels,
                                                        w_offset, h_offset))
-    interp_indices = tf.concat(0, indices)
+    interp_indices = tf.concat_v2(axis=0, values=indices)
     rezoom_features = train_utils.interp(early_feat,
                                          interp_indices,
                                          early_feat_channels)
@@ -75,30 +70,6 @@ def _rezoom(hyp, pred_boxes, early_feat, early_feat_channels,
                       [outer_size,
                        hyp['rnn_len'],
                        len(w_offsets) * len(h_offsets) * early_feat_channels])
-
-
-def _build_lstm_inner(hyp, lstm_input):
-    '''
-    build lstm decoder
-    '''
-    lstm_cell = rnn_cell.BasicLSTMCell(hyp['lstm_size'], forget_bias=0.0)
-    if hyp['num_lstm_layers'] > 1:
-        lstm = rnn_cell.MultiRNNCell([lstm_cell] * hyp['num_lstm_layers'])
-    else:
-        lstm = lstm_cell
-
-    batch_size = hyp['batch_size'] * hyp['grid_height'] * hyp['grid_width']
-    state = tf.zeros([batch_size, lstm.state_size])
-
-    outputs = []
-    with tf.variable_scope(
-            'RNN', initializer=tf.random_uniform_initializer(-0.1, 0.1)):
-        for time_step in range(hyp['rnn_len']):
-            if time_step > 0:
-                tf.get_variable_scope().reuse_variables()
-            output, state = lstm(lstm_input, state)
-            outputs.append(output)
-    return outputs
 
 
 def _build_overfeat_inner(hyp, lstm_input):
@@ -177,13 +148,15 @@ def decoder(hyp, logits, train):
                                         ksize=[1, pool_size, pool_size, 1],
                                         strides=[1, 1, 1, 1], padding='SAME')
 
-            cnn_s_with_pool = tf.concat(3, [cnn_s_pool, cnn_s[:, :, :, 256:]])
+            cnn_s_with_pool = tf.concat_v2(axis=3,
+                                           values=[cnn_s_pool,
+                                                   cnn_s[:, :, :, 256:]])
             output_shape = [hyp['batch_size'], hyp['grid_height'],
                             hyp['grid_width'], 256]
             cnn_deconv = _deconv(
                 cnn_s_with_pool, output_shape=output_shape,
                 channels=[hyp['cnn_channels'], 256])
-            cnn = tf.concat(3, (cnn_deconv, cnn[:, :, :, 256:]))
+            cnn = tf.concat_v2(axis=3, values=(cnn_deconv, cnn[:, :, :, 256:]))
 
     elif hyp['avg_pool_size'] > 1:
         pool_size = hyp['avg_pool_size']
@@ -191,7 +164,7 @@ def decoder(hyp, logits, train):
         cnn2 = cnn[:, :, :, 700:]
         cnn2 = tf.nn.avg_pool(cnn2, ksize=[1, pool_size, pool_size, 1],
                               strides=[1, 1, 1, 1], padding='SAME')
-        cnn = tf.concat(3, [cnn1, cnn2])
+        cnn = tf.concat_v2(axis=3, values=[cnn1, cnn2])
 
     num_ex = hyp['batch_size'] * hyp['grid_width'] * hyp['grid_height']
 
@@ -226,8 +199,8 @@ def decoder(hyp, logits, train):
             pred_logits.append(tf.reshape(tf.matmul(output, conf_weights),
                                           [outer_size, 1, hyp['num_classes']]))
 
-        pred_boxes = tf.concat(1, pred_boxes)
-        pred_logits = tf.concat(1, pred_logits)
+        pred_boxes = tf.concat_v2(axis=1, values=pred_boxes)
+        pred_logits = tf.concat_v2(axis=1, values=pred_logits)
         pred_logits_squash = tf.reshape(pred_logits,
                                         [outer_size * hyp['rnn_len'],
                                          hyp['num_classes']])
@@ -248,8 +221,9 @@ def decoder(hyp, logits, train):
             if train:
                 rezoom_features = tf.nn.dropout(rezoom_features, 0.5)
             for k in range(hyp['rnn_len']):
-                delta_features = tf.concat(
-                    1, [lstm_outputs[k], rezoom_features[:, k, :] / 1000.])
+                delta_features = tf.concat_v2(
+                    axis=1,
+                    values=[lstm_outputs[k], rezoom_features[:, k, :] / 1000.])
                 dim = 128
                 shape = [hyp['lstm_size'] + early_feat_channels * num_offsets,
                          dim]
@@ -274,7 +248,7 @@ def decoder(hyp, logits, train):
                 pred_confs_deltas.append(tf.reshape(feature2,
                                                     [outer_size, 1,
                                                      hyp['num_classes']]))
-            pred_confs_deltas = tf.concat(1, pred_confs_deltas)
+            pred_confs_deltas = tf.concat_v2(axis=1, values=pred_confs_deltas)
 
             # moved from loss
             pred_confs_deltas = tf.reshape(pred_confs_deltas,
@@ -289,7 +263,8 @@ def decoder(hyp, logits, train):
                                           [outer_size, hyp['rnn_len'],
                                            hyp['num_classes']])
             if hyp['reregress']:
-                pred_boxes_deltas = tf.concat(1, pred_boxes_deltas)
+                pred_boxes_deltas = tf.concat_v2(axis=1,
+                                                 values=pred_boxes_deltas)
         else:
             pred_confs_deltas = None
             pred_boxes_deltas = None
@@ -353,7 +328,7 @@ def loss(hypes, decoded_logits, labels):
     outer_size = grid_size * hypes['batch_size']
 
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        pred_logit_r, true_classes)
+        logits=pred_logit_r, labels=true_classes)
 
     cross_entropy_sum = (tf.reduce_sum(cross_entropy))
 
@@ -382,7 +357,7 @@ def loss(hypes, decoded_logits, labels):
             inside = tf.reshape(tf.to_int64((tf.greater(classes, 0))), [-1])
 
         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-            pred_confs_deltas, inside)
+            logits=pred_confs_deltas, labels=inside)
 
         delta_confs_loss = tf.reduce_sum(cross_entropy) \
             / outer_size * hypes['solver']['head_weights'][0] * 0.1
@@ -399,13 +374,13 @@ def loss(hypes, decoded_logits, labels):
                                 outer_size * head[1] * 0.03)
             # boxes_loss = delta_boxes_loss
 
-            tf.histogram_summary(
+            tf.summary.histogram(
                 '/delta_hist0_x', pred_boxes_deltas[:, 0, 0])
-            tf.histogram_summary(
+            tf.summary.histogram(
                 '/delta_hist0_y', pred_boxes_deltas[:, 0, 1])
-            tf.histogram_summary(
+            tf.summary.histogram(
                 '/delta_hist0_w', pred_boxes_deltas[:, 0, 2])
-            tf.histogram_summary(
+            tf.summary.histogram(
                 '/delta_hist0_h', pred_boxes_deltas[:, 0, 3])
             loss += delta_boxes_loss
     else:
@@ -494,9 +469,7 @@ def evaluation(hyp, images, labels, decoded_logits, losses, global_step):
                               [images, test_true_confidences,
                                test_true_boxes, global_step, 'true'],
                               [tf.float32])
-    tf.image_summary('/pred_boxes', tf.pack(pred_log_img),
-                     max_images=10)
-    tf.image_summary('/true_boxes', tf.pack(true_log_img),
-                     max_images=10)
+    tf.summary.image('/pred_boxes', tf.stack(pred_log_img))
+    tf.summary.image('/true_boxes', tf.stack(true_log_img))
 
     return eval_list
