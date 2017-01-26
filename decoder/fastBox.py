@@ -153,7 +153,7 @@ def _build_rezoom_layer(hyp, rezoom_input, train):
     delta_features = tf.concat_v2(
         axis=1,
         values=[hidden_output,
-                rezoom_features[:, 1, :] / 1000.])
+                rezoom_features[:, 0, :] / 1000.])
     dim = 128
     shape = [hyp['num_inner_channel'] +
              early_feat_channels * num_offsets,
