@@ -30,7 +30,7 @@
         "batch_size": 1,
         "weights": "",
         "head_weights": [1.0, 0.1],
-        "max_steps": 180000
+        "max_steps": 120000
     },
     "fc_size": 2,
     "use_fc": false,

@@ -30,7 +30,7 @@
         "batch_size": 1,
         "weights": "",
         "head_weights": [1.0, 0.1],
-        "max_steps": 180000
+        "max_steps": 120000
     },
     "use_rezoom": true,
     "biggest_box_px": 10000,
@@ -44,6 +44,7 @@
     "grid_height": 12,
     "batch_size": 1, 
     "tau": 0.5,
+    "scale_down": 0.1,
     "focus_size": 1.8,
     "region_size": 32,
     "clip_norm": 1.0,

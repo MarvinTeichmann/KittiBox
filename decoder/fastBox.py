@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Trains, evaluates and saves the model network using a queue."""
+"""Create the fastbox decoder. For a detailed description see:
+https://arxiv.org/abs/1612.07695 ."""
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -61,16 +62,72 @@ def _rezoom(hyp, pred_boxes, early_feat, early_feat_channels,
                        len(w_offsets) * len(h_offsets) * early_feat_channels])
 
 
-def _build_hidden_layer(hyp, hidden_input):
+def _build_inner_layer(hyp, encoded_features, train):
     '''
-    build an 1x1 conv layer
+    Apply an 1x1 convolutions to compute inner features
+    The layer consists of 1x1 convolutions implemented as
+    matrix multiplication. This makes the layer very fast.
+    The layer has "hyp['num_inner_channel']" channels
     '''
+    grid_size = hyp['grid_width'] * hyp['grid_height']
+    outer_size = grid_size * hyp['batch_size']
+
+    num_ex = hyp['batch_size'] * hyp['grid_width'] * hyp['grid_height']
+
+    channels = int(encoded_features.shape[-1])
+    hyp['cnn_channels'] = channels
+    hidden_input = tf.reshape(encoded_features, [num_ex, channels])
+
+    scale_down = hyp['scale_down']
+
+    hidden_input = tf.reshape(
+        hidden_input * scale_down, (hyp['batch_size'] * grid_size, channels))
+
     initializer = tf.random_uniform_initializer(-0.1, 0.1)
     with tf.variable_scope('Overfeat', initializer=initializer):
         w = tf.get_variable('ip', shape=[hyp['cnn_channels'],
                                          hyp['num_inner_channel']])
         output = tf.matmul(hidden_input, w)
+
+    if train:
+        # Adding dropout during training
+            output = tf.nn.dropout(output, 0.5)
     return output
+
+
+def _build_output_layer(hyp, hidden_output):
+    '''
+    Build an 1x1 conv layer.
+    The layer consists of 1x1 convolutions implemented as
+    matrix multiplication. This makes the layer very fast.
+    The layer has "hyp['num_inner_channel']" channels
+    '''
+
+    grid_size = hyp['grid_width'] * hyp['grid_height']
+    outer_size = grid_size * hyp['batch_size']
+
+    box_weights = tf.get_variable('box_out',
+                                  shape=(hyp['num_inner_channel'], 4))
+    conf_weights = tf.get_variable('confs_out',
+                                   shape=(hyp['num_inner_channel'],
+                                          hyp['num_classes']))
+
+    pred_boxes = tf.reshape(tf.matmul(hidden_output, box_weights) * 50,
+                            [outer_size, 1, 4])
+
+    # hyp['rnn_len']
+    pred_logits = tf.reshape(tf.matmul(hidden_output, conf_weights),
+                             [outer_size, 1, hyp['num_classes']])
+
+    pred_logits_squash = tf.reshape(pred_logits,
+                                    [outer_size,
+                                     hyp['num_classes']])
+
+    pred_confidences_squash = tf.nn.softmax(pred_logits_squash)
+    pred_confidences = tf.reshape(pred_confidences_squash,
+                                  [outer_size, hyp['rnn_len'],
+                                   hyp['num_classes']])
+    return pred_boxes, pred_logits, pred_confidences
 
 
 def decoder(hyp, logits, train):
@@ -87,7 +144,8 @@ def decoder(hyp, logits, train):
       decoded_logits: values which can be interpreted as bounding boxes
     """
     hyp['rnn_len'] = 1
-    cnn = logits['deep_feat']
+    encoded_features = logits['deep_feat']
+
     early_feat = logits['early_feat']
 
     grid_size = hyp['grid_width'] * hyp['grid_height']
@@ -96,42 +154,15 @@ def decoder(hyp, logits, train):
     early_feat_channels = hyp['early_feat_channels']
     early_feat = early_feat[:, :, :, :early_feat_channels]
 
-    num_ex = hyp['batch_size'] * hyp['grid_width'] * hyp['grid_height']
-
-    channels = int(cnn.shape[-1])
-    hyp['cnn_channels'] = channels
-    cnn = tf.reshape(cnn, [num_ex, channels])
     initializer = tf.random_uniform_initializer(-0.1, 0.1)
     with tf.variable_scope('decoder', initializer=initializer):
-        scale_down = 0.01
-        hidden_input = tf.reshape(
-            cnn * scale_down, (hyp['batch_size'] * grid_size, channels))
-
-        hidden_output = _build_hidden_layer(hyp, hidden_input)
-
-        if train:
-            hidden_output = tf.nn.dropout(hidden_output, 0.5)
-        box_weights = tf.get_variable('box_out',
-                                      shape=(hyp['num_inner_channel'], 4))
-        conf_weights = tf.get_variable('confs_out',
-                                       shape=(hyp['num_inner_channel'],
-                                              hyp['num_classes']))
-
-        pred_boxes = tf.reshape(tf.matmul(hidden_output, box_weights) * 50,
-                                [outer_size, 1, 4])
-
-        # hyp['rnn_len']
-        pred_logits = tf.reshape(tf.matmul(hidden_output, conf_weights),
-                                 [outer_size, 1, hyp['num_classes']])
-
-        pred_logits_squash = tf.reshape(pred_logits,
-                                        [outer_size,
-                                         hyp['num_classes']])
-
-        pred_confidences_squash = tf.nn.softmax(pred_logits_squash)
-        pred_confidences = tf.reshape(pred_confidences_squash,
-                                      [outer_size, hyp['rnn_len'],
-                                       hyp['num_classes']])
+        # Build inner layer.
+        # See https://arxiv.org/abs/1612.07695 fig. 2 for details
+        hidden_output = _build_inner_layer(hyp, encoded_features, train)
+        # Build output layer
+        # See https://arxiv.org/abs/1612.07695 fig. 2 for details
+        pred_boxes, pred_logits, pred_confidences = _build_output_layer(
+            hyp, hidden_output)
 
         if hyp['use_rezoom']:
             pred_confs_deltas = []
