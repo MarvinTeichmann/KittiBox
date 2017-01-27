@@ -233,6 +233,8 @@ def decoder(hyp, logits, train):
             dlogits['pred_confs_deltas'] = pred_confs_deltas
             dlogits['pred_boxes_deltas'] = pred_boxes_deltas
 
+            dlogits['pred_boxes_new'] = pred_boxes + pred_boxes_deltas
+
     # Fill dict with return values
     dlogits['pred_boxes'] = pred_boxes
     dlogits['pred_logits'] = pred_logits
