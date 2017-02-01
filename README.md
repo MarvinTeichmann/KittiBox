@@ -2,13 +2,13 @@
 
 KittiBox is a collection of scripts to train out model FastBox on the Kitti Object Detection Dataset. A detailed description of Fastbox can be found in our [MultiNet paper](https://arxiv.org/abs/1612.07695).
 
-FastBox is designed to archive a high detection performance at a very fast inference speed. On Kitti data the model has a throughput of 27 fps (36ms), and is more than double as fast as FasterRCNN. Despite its impressive speed FastBox outperforms Faster-RCNN significantly.
+FastBox is designed to archive a high detection performance at a very fast inference speed. On Kitti data the model has a throughput of 28 fps (36ms), and is more than double as fast as FasterRCNN. Despite its impressive speed FastBox outperforms Faster-RCNN significantly.
 
 
-Task          | moderate   |    easy      | hard     |   speed
--------------------------------------------------------------------------
-FastBox       |    86.45 %     |   92.80 %  |   67.59 %    |  35.75 ms
-Faster-RCNN   |    78.42 %     |   91.62 %  |   66.85 %    |  78ms
+Task          | moderate   |    easy      | hard          |   speed (ms) | speed (fps)
+--------------|------------|--------------|---------------|------------- |----------
+FastBox       |    86.45 %     |   92.80 %  |   67.59 %    |  35.75 ms   |  28
+Faster-RCNN   |    78.42 %     |   91.62 %  |   66.85 %    |  78.3 ms    |  13
 
 The code contains for `train`, `evaluate` and `visualize` FastBox in tensorflow. It is build to be compatible with the [TensorVision](http://tensorvision.readthedocs.io/en/master/user/tutorial.html#workflow) backend which allows to organize experiments in a very clean way.
 
