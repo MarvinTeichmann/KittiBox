@@ -51,6 +51,15 @@ tf.app.flags.DEFINE_boolean(
 def main(_):
     utils.set_gpus_to_use()
 
+    try:
+        import tensorvision.train
+        import tensorflow_fcn.utils
+    except ImportError:
+        logging.error("Could not import the submodules.")
+        logging.error("Please execute:"
+                      "'git submodule update --init --recursive'")
+        exit(1)
+
     with open(tf.app.flags.FLAGS.hypes, 'r') as f:
         logging.info("f: %s", f)
         hypes = json.load(f)

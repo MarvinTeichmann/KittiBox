@@ -7,8 +7,8 @@
     "evaluator_file" : "../inputs/cars_eval.py"
     },
     "data": {
-        "train_idl": "Kitti_Cars/train_3.idl",
-        "val_idl": "Kitti_Cars/val_3.idl",
+        "train_idl": "KittiBox/train_3.idl",
+        "val_idl": "KittiBox/val_3.idl",
         "truncate_data": false
     },
     "logging": {
