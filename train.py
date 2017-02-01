@@ -39,7 +39,7 @@ flags.DEFINE_string('name', None,
 flags.DEFINE_string('project', None,
                     'Append a name Tag to run.')
 
-flags.DEFINE_string('hypes', 'hypes/kitti.json',
+flags.DEFINE_string('hypes', 'hypes/kittiBox.json',
                     'File storing model parameters.')
 
 tf.app.flags.DEFINE_boolean(
@@ -50,6 +50,15 @@ tf.app.flags.DEFINE_boolean(
 
 def main(_):
     utils.set_gpus_to_use()
+
+    try:
+        import tensorvision.train
+        import tensorflow_fcn.utils
+    except ImportError:
+        logging.error("Could not import the submodules.")
+        logging.error("Please execute:"
+                      "'git submodule update --init --recursive'")
+        exit(1)
 
     with open(tf.app.flags.FLAGS.hypes, 'r') as f:
         logging.info("f: %s", f)

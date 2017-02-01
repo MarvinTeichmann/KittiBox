@@ -124,6 +124,7 @@ def _load_data_gen(hypes, phase, jitter):
 
 def create_queues(hypes, phase):
     """Create Queues."""
+    hypes["rnn_len"] = 1
     dtypes = [tf.float32, tf.float32, tf.float32]
     grid_size = hypes['grid_width'] * hypes['grid_height']
     shapes = ([hypes['image_height'], hypes['image_width'], 3],
