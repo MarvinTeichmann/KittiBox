@@ -44,21 +44,21 @@ Run: `python train.py` to train a new model on the Kitti Data.
 
 ### Modifying Model & Train on your own data
 
-The model is controlled by the file `hypes/KittiSeg.json`. Modifying this file should be enough to train the model on your own data and adjust the architecture according to your needs. You can create a new file `hypes/my_hype.json` and train that architecture using:
+The model is controlled by the file `hypes/kittiBox.json`. Modifying this file should be enough to train the model on your own data and adjust the architecture according to your needs. You can create a new file `hypes/my_hype.json` and train that architecture using:
 
 `python train.py --hypes hypes/my_hype.json`
 
 
 
-For advanced modifications, the code is controlled by 5 different modules, which are specified in `hypes/KittiSeg.json`.
+For advanced modifications, the code is controlled by 5 different modules, which are specified in `hypes/kittiBox.json`.
 
 ```
 "model": {
-   "input_file": "../inputs/kitti_seg_input.py",
-   "architecture_file" : "../encoder/fcn8_vgg.py",
-   "objective_file" : "../decoder/kitti_multiloss.py",
-   "optimizer_file" : "../optimizer/generic_optimizer.py",
-   "evaluator_file" : "../evals/kitti_eval.py"
+    "input_file": "../inputs/idl_input.py",
+    "architecture_file" : "../encoder/vgg.py",
+    "objective_file" : "../decoder/fastBox.py",
+    "optimizer_file" : "../optimizer/generic_optimizer.py",
+    "evaluator_file" : "../inputs/cars_eval.py"
 },
 ```
 
@@ -67,7 +67,7 @@ Those modules operate independently. This allows easy experiments with different
 
 ## Managing Folders
 
-By default, the data is stored in the folder `KittiSeg/DATA` and the output of runs in `KittiSeg/RUNS`. This behaviour can be changed by adjusting the environoment Variabels: `$TV_DIR_DATA` and `$TV_DIR_RUNS`.
+By default, the data is stored in the folder `KittiBox/DATA` and the output of runs in `KittiBox/RUNS`. This behaviour can be changed by adjusting the environoment Variabels: `$TV_DIR_DATA` and `$TV_DIR_RUNS`.
 
 For organizing your experiments you can use:
 `python train.py --project batch_size_bench --name size_5`. This will store the run in the subfolder:  `$TV_DIR_RUNS/batch_size_bench/size_5_%DATE`
@@ -82,19 +82,19 @@ KittiBox is build on top of the TensorVision [TensorVision](https://github.com/T
 
 To utilize the entire TensorVision functionality install it using 
 
-`$ cd KittiSeg/submodules/TensorVision` <br>
+`$ cd KittiBox/submodules/TensorVision` <br>
 `$ python setup install`
 
 Now you can use the TensorVision command line tools, which includes:
 
-`tv-train --hypes hypes/KittiSeg.json` trains a json model. <br>
+`tv-train --hypes hypes/KittiBox.json` trains a json model. <br>
 `tv-continue --logdir PATH/TO/RUNDIR` continues interrupted training <br>
 `tv-analyze --logdir PATH/TO/RUNDIR` evaluated trained model <br>
 
 
 ## Useful Flags & Variabels
 
-Here are some Flags which will be useful when working with KittiSeg and TensorVision. All flags are avaible across all scripts. 
+Here are some Flags which will be useful when working with KittiBox and TensorVision. All flags are avaible across all scripts. 
 
 `--hypes` : specify which hype-file to use <br>
 `--logdir` : specify which logdir to use <br>
