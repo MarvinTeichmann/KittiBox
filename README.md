@@ -1,6 +1,6 @@
 # KittiBox
 
-KittiBox is a collection of scripts to train out model FastBox on the Kitti Object Detection Dataset. A detailed description of Fastbox can be found in our [MultiNet paper](https://arxiv.org/abs/1612.07695).
+KittiBox is a collection of scripts to train out model FastBox on the [Kitti Object Detection Dataset](http://www.cvlibs.net/datasets/kitti/eval_object.php). A detailed description of Fastbox can be found in our [MultiNet paper](https://arxiv.org/abs/1612.07695).
 
 FastBox is designed to archive a high detection performance at a very fast inference speed. On Kitti data the model has a throughput of 28 fps (36ms), and is more than double as fast as FasterRCNN. Despite its impressive speed FastBox outperforms Faster-RCNN significantly.
 
