@@ -12,6 +12,8 @@ Faster-RCNN   |    78.42 %     |   91.62 %  |   66.85 %    |  78.30 ms    |  12.
 
 The code contains for `train`, `evaluate` and `visualize` FastBox in tensorflow. It is build to be compatible with the [TensorVision](http://tensorvision.readthedocs.io/en/master/user/tutorial.html#workflow) backend which allows to organize experiments in a very clean way.
 
+If you like this project, also check out [KittiSeg](https://github.com/MarvinTeichmann/KittiSeg) a similar project implementing a state-of-the-art road segmentation model.
+
 The Faster-RCNN baseline is obtained using [this](https://github.com/MarvinTeichmann/kitti) code.
 
 ## Requirements
