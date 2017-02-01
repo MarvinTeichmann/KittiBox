@@ -7,8 +7,8 @@ FastBox is designed to archive a high detection performance at a very fast infer
 
 Task          | moderate   |    easy      | hard          |   speed (ms) | speed (fps)
 --------------|------------|--------------|---------------|------------- |----------
-FastBox       |    86.45 %     |   92.80 %  |   67.59 %    |  35.75 ms   |  28
-Faster-RCNN   |    78.42 %     |   91.62 %  |   66.85 %    |  78.3 ms    |  13
+FastBox       |    86.45 %     |   92.80 %  |   67.59 %    |  35.75 ms   |  27.97
+Faster-RCNN   |    78.42 %     |   91.62 %  |   66.85 %    |  78.30 ms    |  12.77
 
 The code contains for `train`, `evaluate` and `visualize` FastBox in tensorflow. It is build to be compatible with the [TensorVision](http://tensorvision.readthedocs.io/en/master/user/tutorial.html#workflow) backend which allows to organize experiments in a very clean way.
 
@@ -77,7 +77,7 @@ This is useful if you want to run different series of experiments.
 
 ## Utilize TensorVision backend
 
-KittiSeg is build on top of the TensorVision [TensorVision](https://github.com/TensorVision/TensorVision) backend. TensorVision modulizes computer vision training and helps organizing experiments. 
+KittiBox is build on top of the TensorVision [TensorVision](https://github.com/TensorVision/TensorVision) backend. TensorVision modulizes computer vision training and helps organizing experiments. 
 
 
 To utilize the entire TensorVision functionality install it using 
