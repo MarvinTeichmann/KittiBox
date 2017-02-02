@@ -46,7 +46,7 @@ def _rezoom(hyp, pred_boxes, early_feat, early_feat_channels,
                                                        early_feat,
                                                        early_feat_channels,
                                                        w_offset, h_offset))
-    interp_indices = tf.concat_v2(axis=0, values=indices)
+    interp_indices = tf.concat(axis=0, values=indices)
     rezoom_features = train_utils.interp(early_feat,
                                          interp_indices,
                                          early_feat_channels)
@@ -150,7 +150,7 @@ def _build_rezoom_layer(hyp, rezoom_input, train):
     if train:
         rezoom_features = tf.nn.dropout(rezoom_features, 0.5)
 
-    delta_features = tf.concat_v2(
+    delta_features = tf.concat(
         axis=1,
         values=[hidden_output,
                 rezoom_features[:, 0, :] / 1000.])

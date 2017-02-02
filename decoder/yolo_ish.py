@@ -56,7 +56,7 @@ def _rezoom(hyp, pred_boxes, early_feat, early_feat_channels,
                                                        early_feat,
                                                        early_feat_channels,
                                                        w_offset, h_offset))
-    interp_indices = tf.concat_v2(axis=0, values=indices)
+    interp_indices = tf.concat(axis=0, values=indices)
     rezoom_features = train_utils.interp(early_feat,
                                          interp_indices,
                                          early_feat_channels)
@@ -148,7 +148,7 @@ def decoder(hyp, logits, train):
                                         ksize=[1, pool_size, pool_size, 1],
                                         strides=[1, 1, 1, 1], padding='SAME')
 
-            cnn_s_with_pool = tf.concat_v2(axis=3,
+            cnn_s_with_pool = tf.concat(axis=3,
                                            values=[cnn_s_pool,
                                                    cnn_s[:, :, :, 256:]])
             output_shape = [hyp['batch_size'], hyp['grid_height'],
@@ -156,7 +156,7 @@ def decoder(hyp, logits, train):
             cnn_deconv = _deconv(
                 cnn_s_with_pool, output_shape=output_shape,
                 channels=[hyp['cnn_channels'], 256])
-            cnn = tf.concat_v2(axis=3, values=(cnn_deconv, cnn[:, :, :, 256:]))
+            cnn = tf.concat(axis=3, values=(cnn_deconv, cnn[:, :, :, 256:]))
 
     elif hyp['avg_pool_size'] > 1:
         pool_size = hyp['avg_pool_size']
@@ -164,7 +164,7 @@ def decoder(hyp, logits, train):
         cnn2 = cnn[:, :, :, 700:]
         cnn2 = tf.nn.avg_pool(cnn2, ksize=[1, pool_size, pool_size, 1],
                               strides=[1, 1, 1, 1], padding='SAME')
-        cnn = tf.concat_v2(axis=3, values=[cnn1, cnn2])
+        cnn = tf.concat(axis=3, values=[cnn1, cnn2])
 
     num_ex = hyp['batch_size'] * hyp['grid_width'] * hyp['grid_height']
 
@@ -199,8 +199,8 @@ def decoder(hyp, logits, train):
             pred_logits.append(tf.reshape(tf.matmul(output, conf_weights),
                                           [outer_size, 1, hyp['num_classes']]))
 
-        pred_boxes = tf.concat_v2(axis=1, values=pred_boxes)
-        pred_logits = tf.concat_v2(axis=1, values=pred_logits)
+        pred_boxes = tf.concat(axis=1, values=pred_boxes)
+        pred_logits = tf.concat(axis=1, values=pred_logits)
         pred_logits_squash = tf.reshape(pred_logits,
                                         [outer_size * hyp['rnn_len'],
                                          hyp['num_classes']])
@@ -221,7 +221,7 @@ def decoder(hyp, logits, train):
             if train:
                 rezoom_features = tf.nn.dropout(rezoom_features, 0.5)
             for k in range(hyp['rnn_len']):
-                delta_features = tf.concat_v2(
+                delta_features = tf.concat(
                     axis=1,
                     values=[lstm_outputs[k], rezoom_features[:, k, :] / 1000.])
                 dim = 128
@@ -248,7 +248,7 @@ def decoder(hyp, logits, train):
                 pred_confs_deltas.append(tf.reshape(feature2,
                                                     [outer_size, 1,
                                                      hyp['num_classes']]))
-            pred_confs_deltas = tf.concat_v2(axis=1, values=pred_confs_deltas)
+            pred_confs_deltas = tf.concat(axis=1, values=pred_confs_deltas)
 
             # moved from loss
             pred_confs_deltas = tf.reshape(pred_confs_deltas,
@@ -263,8 +263,8 @@ def decoder(hyp, logits, train):
                                           [outer_size, hyp['rnn_len'],
                                            hyp['num_classes']])
             if hyp['reregress']:
-                pred_boxes_deltas = tf.concat_v2(axis=1,
-                                                 values=pred_boxes_deltas)
+                pred_boxes_deltas = tf.concat(axis=1,
+                                              values=pred_boxes_deltas)
         else:
             pred_confs_deltas = None
             pred_boxes_deltas = None

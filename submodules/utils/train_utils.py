@@ -136,7 +136,7 @@ def to_x1y1x2y2(box):
     x2 = box[:, 0:1] + w / 2
     y1 = box[:, 1:2] - h / 2
     y2 = box[:, 1:2] + h / 2
-    return tf.concat_v2(axis=1, values=[x1, y1, x2, y2])
+    return tf.concat(axis=1, values=[x1, y1, x2, y2])
 
 def intersection(box1, box2):
     x1_max = tf.maximum(box1[:, 0], box2[:, 0])
@@ -187,10 +187,10 @@ def interp(w, i, channel_dim):
         of the same length == len(i)
     '''
     w_as_vector = tf.reshape(w, [-1, channel_dim]) # gather expects w to be 1-d
-    upper_l = tf.to_int32(tf.concat_v2(axis=1, values=[i[:, 0:1], tf.floor(i[:, 1:2]), tf.floor(i[:, 2:3])]))
-    upper_r = tf.to_int32(tf.concat_v2(axis=1, values=[i[:, 0:1], tf.floor(i[:, 1:2]), tf.ceil(i[:, 2:3])]))
-    lower_l = tf.to_int32(tf.concat_v2(axis=1, values=[i[:, 0:1], tf.ceil(i[:, 1:2]), tf.floor(i[:, 2:3])]))
-    lower_r = tf.to_int32(tf.concat_v2(axis=1, values=[i[:, 0:1], tf.ceil(i[:, 1:2]), tf.ceil(i[:, 2:3])]))
+    upper_l = tf.to_int32(tf.concat(axis=1, values=[i[:, 0:1], tf.floor(i[:, 1:2]), tf.floor(i[:, 2:3])]))
+    upper_r = tf.to_int32(tf.concat(axis=1, values=[i[:, 0:1], tf.floor(i[:, 1:2]), tf.ceil(i[:, 2:3])]))
+    lower_l = tf.to_int32(tf.concat(axis=1, values=[i[:, 0:1], tf.ceil(i[:, 1:2]), tf.floor(i[:, 2:3])]))
+    lower_r = tf.to_int32(tf.concat(axis=1, values=[i[:, 0:1], tf.ceil(i[:, 1:2]), tf.ceil(i[:, 2:3])]))
 
     upper_l_idx = to_idx(upper_l, tf.shape(w))
     upper_r_idx = to_idx(upper_r, tf.shape(w))
@@ -247,5 +247,5 @@ def bilinear_select(H, pred_boxes, early_feat, early_feat_channels, w_offset, h_
                                           0,
                                           scale_factor * H['grid_height'] - 1)
 
-    interp_indices = tf.concat_v2(axis=1, values=[tf.to_float(batch_ids), pred_y_center_clip, pred_x_center_clip])
+    interp_indices = tf.concat(axis=1, values=[tf.to_float(batch_ids), pred_y_center_clip, pred_x_center_clip])
     return interp_indices
