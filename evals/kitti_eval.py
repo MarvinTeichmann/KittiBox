@@ -23,6 +23,8 @@ import random
 
 from utils.annolist import AnnotationLib as AnnLib
 
+import logging
+
 
 def make_val_dir(hypes, validation=True):
     if validation:
@@ -57,20 +59,30 @@ def evaluate(hypes, sess, image_pl, softmax):
                                                                     True)
 
     val_path = make_val_dir(hypes)
-    subprocess.check_call(["evaluate_object2", val_path])
-    res_file = os.path.join(val_path, "stats_car_detection.txt")
 
     eval_list = []
+
+    try:
+        subprocess.check_call(["evaluate_object5", val_path])
+    except OSError as error:
+        logging.warning("Failed to run run kitti evaluation code.")
+        logging.warning("Detection accuracy (AP) could not be computed.")
+        logging.warning("Evaluation code will be provided soon.")
+        img_dir = make_img_dir(hypes)
+        logging.info("Output images have been written to {}.".format(img_dir))
+        eval_list.append(('Speed (msec)', 1000*dt))
+        eval_list.append(('Speed (fps)', 1/dt))
+        eval_list.append(('Post (msec)', 1000*dt2))
+        return eval_list, image_list
+
+    res_file = os.path.join(val_path, "stats_car_detection.txt")
+
     with open(res_file) as f:
         for mode in ['easy', 'medium', 'hard']:
             line = f.readline()
             result = np.array(line.rstrip().split(" ")).astype(float)
             mean = np.mean(result)
             eval_list.append(("val   " + mode, mean))
-
-    eval_list.append(('Speed (msec)', 1000*dt))
-    eval_list.append(('Speed (fps)', 1/dt))
-    eval_list.append(('Post (msec)', 1000*dt2))
 
     pred_annolist, true_annolist, image_list2, dt, dt2 = get_results(hypes,
                                                                      sess,

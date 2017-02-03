@@ -12,8 +12,8 @@
         "truncate_data": false
     },
     "logging": {
-        "display_iter": 200,
-        "eval_iter": 1000,
+        "display_iter": 20,
+        "eval_iter": 100,
         "write_iter": 800,
         "save_iter": 2000,
         "image_iter": 10000
