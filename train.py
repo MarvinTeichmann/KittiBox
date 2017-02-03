@@ -67,7 +67,7 @@ def main(_):
 
     if 'TV_DIR_RUNS' in os.environ:
         os.environ['TV_DIR_RUNS'] = os.path.join(os.environ['TV_DIR_RUNS'],
-                                                 'TensorDetect2')
+                                                 'KittiBox')
     utils.set_dirs(hypes, tf.app.flags.FLAGS.hypes)
 
     utils._add_paths_to_sys(hypes)
