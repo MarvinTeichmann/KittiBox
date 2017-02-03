@@ -24,8 +24,9 @@ The code requires Tensorflow 1.0 as well as the following python libraries:
 * numpy
 * Pillow
 * scipy
+* runcython
 
-Those modules can be installed using: `pip install numpy scipy pillow matplotlib` or `pip install -r requirements.txt`.
+Those modules can be installed using: `pip install numpy scipy pillow matplotlib runcython` or `pip install -r requirements.txt`.
 
 ## Setup
 
@@ -33,6 +34,7 @@ Those modules can be installed using: `pip install numpy scipy pillow matplotlib
 2. Initialize all submodules: `git submodule update --init --recursive`
 3. Retrieve kitti data url here: [http://www.cvlibs.net/download.php?file=data_object_image_2.zip](http://www.cvlibs.net/download.php?file=data_object_image_2.zip)
 4. Call `python download_data.py --kitti_url URL_YOU_RETRIEVED`
+5. Run `cd submodules/utils && make` (inside `KittiSeg` dir) to build cython code
 
 I strongly recommend to exececute step 4. instead of downloading the data yourself. The script will also prepare the data to be in the right input format and check whether the right data is downloaded.
 
