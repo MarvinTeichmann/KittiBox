@@ -4,7 +4,7 @@
     "architecture_file" : "../encoder/vgg.py",
     "objective_file" : "../decoder/fastBox.py",
     "optimizer_file" : "../optimizer/generic_optimizer.py",
-    "evaluator_file" : "../inputs/cars_eval.py"
+    "evaluator_file" : "../evals/kitti_eval.py"
     },
     "data": {
         "train_idl": "KittiBox/train_3.idl",
@@ -26,7 +26,7 @@
         "epsilon": 0.00001, 
         "learning_rate": 1e-5, 
         "learning_rate_step": null, 
-        "hungarian_iou": 0.5,
+        "hungarian_iou": 0.35,
         "batch_size": 1,
         "weights": "",
         "head_weights": [1.0, 0.1],
@@ -43,7 +43,7 @@
     "grid_width": 39,
     "grid_height": 12,
     "batch_size": 1, 
-    "tau": 0.5,
+    "tau": 0.35,
     "scale_down": 0.1,
     "focus_size": 1.8,
     "region_size": 32,
