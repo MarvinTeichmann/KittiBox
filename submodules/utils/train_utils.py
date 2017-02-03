@@ -71,7 +71,8 @@ def compute_rectangels(H, confidences, boxes, use_stitching=False, rnn_len=1, mi
 
 
 
-def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_len=1, min_conf=0.1, show_removed=True, tau=0.25):
+def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_len=1, min_conf=0.1, show_removed=True, tau=0.25,
+    color_removed=(0, 0, 255), color_acc=(0, 0, 255)):
     image = np.copy(orig_image[0])
     num_cells = H["grid_height"] * H["grid_width"]
     boxes_r = np.reshape(boxes, (-1,
@@ -107,7 +108,7 @@ def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_l
     if not show_removed:
         all_rects_r = []
 
-    pairs = [(all_rects_r, (0, 0, 255)), (acc_rects, (0, 0, 255))]
+    pairs = [(all_rects_r, color_removed), (acc_rects, color_acc)]
     im = Image.fromarray(image.astype('uint8'))
     draw = ImageDraw.Draw(im)
     for rect_set, color in pairs:
