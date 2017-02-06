@@ -73,7 +73,8 @@ def evaluate(hypes, sess, image_pl, softmax):
     except OSError as error:
         logging.warning("Failed to run run kitti evaluation code.")
         logging.warning("Please run: `cd submodules/KittiObjective2/ && make`")
-        logging.warning("For more information see: `submodules/KittiObjective2/README.md`")
+        logging.warning("For more information see:"
+                        "`submodules/KittiObjective2/README.md`")
         exit(1)
         img_dir = make_img_dir(hypes)
         logging.info("Output images have been written to {}.".format(img_dir))
