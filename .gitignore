@@ -4,6 +4,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+submodules/KittiObjective2/evaluate_object2
+
 sftp-config.json
 
 # C extensions
