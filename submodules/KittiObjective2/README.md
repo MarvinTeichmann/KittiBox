@@ -1,8 +1,8 @@
 # Usage
 
-Build: run `make` to build the code
-Test: run `./evaluate_object2 val_pred val_gt` if build is working.
-Use: run `evaluate_object2 /path/to/prediction /path/to/gt` to run kitti evaluation.
+Build: run `make` to build the code <br>
+Test: run `./evaluate_object2 val_pred val_gt` if build is working <br>
+Use: run `evaluate_object2 /path/to/prediction /path/to/gt` to run kitti evaluation <br>
 
 The results will be written to: `/path/to/prediction/stats_car_detection.txt` and `/path/to/prediction/plot/`. 
 
