@@ -104,8 +104,7 @@ def main():
         logging.warning("Please delete to redownload VGG weights.")
 
     kitti_dec_zip = os.path.join(kitti_dec_dir, 'data_object_image_2.zip')
-
-    kitti_label_zip = "data_object_label_2.zip"
+    kitti_label_zip = os.path.join(kitti_dec_dir, "data_object_label_2.zip")
 
     # Download KITTI DATA
     if not os.path.exists(kitti_dec_zip):
@@ -128,14 +127,18 @@ def main():
         else:
             logging.info("Downloading Kitti Road Data.")
             download(kitti_data_url, kitti_dec_dir)
-            kitti_main = os.path.dirname(kitti_data_url)
-            kitti_label_url = os.path.join(kitti_main, kitti_label_zip)
-            download(kitti_label_url, kitti_dec_dir)
+
+    if not os.path.exists(kitti_label_zip):
+        logging.info("Downloading Kitti Label Data.")
+        kitti_main = os.path.dirname(kitti_data_url)
+        kitti_label_url = os.path.join(kitti_main, kitti_label_zip)
+        kitti_label_url = os.path.join(kitti_main,
+                                       os.path.basename(kitti_label_zip))
+        download(kitti_label_url, kitti_dec_dir)
 
     # Extract and prepare KITTI DATA
     logging.info("Extracting kitti_road data.")
     zipfile.ZipFile(kitti_dec_zip, 'r').extractall(kitti_dec_dir)
-    kitti_label_zip = os.path.join(kitti_dec_dir, kitti_label_zip)
     zipfile.ZipFile(kitti_label_zip, 'r').extractall(kitti_dec_dir)
 
     logging.info("Preparing kitti_road data.")
