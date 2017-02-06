@@ -9,7 +9,9 @@
     "data": {
         "train_idl": "KittiBox/train_3.idl",
         "val_idl": "KittiBox/val_3.idl",
-        "truncate_data": false
+        "truncate_data": false,
+        "eval_cmd": "../submodules/KittiObjective2/./evaluate_object2",
+        "label_dir": "KittiBox/training/label_2"
     },
     "logging": {
         "display_iter": 20,

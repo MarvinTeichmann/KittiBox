@@ -62,8 +62,14 @@ def evaluate(hypes, sess, image_pl, softmax):
 
     eval_list = []
 
+    eval_cmd = os.path.join(hypes['dirs']['base_path'],
+                            hypes['data']['eval_cmd'])
+
+    label_dir = os.path.join(hypes['dirs']['data_dir'],
+                             hypes['data']['label_dir'])
+
     try:
-        subprocess.check_call(["evaluate_object5", val_path])
+        subprocess.check_call([eval_cmd, val_path, label_dir])
     except OSError as error:
         logging.warning("Failed to run run kitti evaluation code.")
         logging.warning("Detection accuracy (AP) could not be computed.")
@@ -91,7 +97,7 @@ def evaluate(hypes, sess, image_pl, softmax):
                                                                      False)
 
     val_path = make_val_dir(hypes, False)
-    subprocess.check_call(["evaluate_object2", val_path])
+    subprocess.check_call([eval_cmd, val_path, label_dir])
     res_file = os.path.join(val_path, "stats_car_detection.txt")
 
     with open(res_file) as f:
@@ -100,6 +106,10 @@ def evaluate(hypes, sess, image_pl, softmax):
             result = np.array(line.rstrip().split(" ")).astype(float)
             mean = np.mean(result)
             eval_list.append(("train   " + mode, mean))
+
+    eval_list.append(('Speed (msec)', 1000*dt))
+    eval_list.append(('Speed (fps)', 1/dt))
+    eval_list.append(('Post (msec)', 1000*dt2))
 
     return eval_list, image_list
 
