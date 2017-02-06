@@ -47,6 +47,7 @@ Above commands will install the linux version with gpu support. For other versio
 4. Call `python download_data.py --kitti_url URL_YOU_RETRIEVED`
 5. Run `cd submodules/utils && make` to build cython code
 6. Run `cd submodules/KittiObjective2/ && make` to build the Kitti evaluation code
+(see [submodules/KittiObjective2/README.md](submodules/KittiObjective2/README.md) for more information)
 
 I strongly recommend to exececute step 4. instead of downloading the data yourself. The script will also prepare the data to be in the right input format and check whether the right data is downloaded.
 
