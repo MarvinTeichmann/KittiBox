@@ -2,19 +2,19 @@
 
 KittiBox is a collection of scripts to train out model FastBox on the [Kitti Object Detection Dataset](http://www.cvlibs.net/datasets/kitti/eval_object.php). A detailed description of Fastbox can be found in our [MultiNet paper](https://arxiv.org/abs/1612.07695).
 
+ <img src="data/images/007007.png" width="288"> <img src="data/images/007404.png" width="288"> <img src="data/images/007241.png" width="288">
+
+ <img src="data/images/007034.png" width="288"> <img src="data/images/007029.png" width="288"> <img src="data/images/007066.png" width="288">
+
 FastBox is designed to archive a high detection performance at a very fast inference speed. On Kitti data the model has a throughput of 28 fps (36ms), and is more than double as fast as FasterRCNN. Despite its impressive speed FastBox outperforms Faster-RCNN significantly.
 
 
 Task          | moderate   |    easy      | hard          |   speed (ms) | speed (fps)
 --------------|------------|--------------|---------------|------------- |----------
 FastBox       |    86.45 %     |   92.80 %  |   67.59 %    |  35.75 ms   |  27.97
-Faster-RCNN   |    78.42 %     |   91.62 %  |   66.85 %    |  78.30 ms    |  12.77
+Faster-RCNN<sup>[1](#myfootnote1)</sup>   |    78.42 %     |   91.62 %  |   66.85 %    |  78.30 ms    |  12.77
 
-The code contains for `train`, `evaluate` and `visualize` FastBox in tensorflow. It is build to be compatible with the [TensorVision](http://tensorvision.readthedocs.io/en/master/user/tutorial.html#workflow) backend which allows to organize experiments in a very clean way.
-
-If you like this project, also check out [KittiSeg](https://github.com/MarvinTeichmann/KittiSeg) a similar project implementing a state-of-the-art road segmentation model.
-
-The Faster-RCNN baseline is obtained using [this](https://github.com/MarvinTeichmann/kitti) code.
+The code contains for `train`, `evaluate` and `visualize` FastBox in tensorflow. It is build to be compatible with the [TensorVision](http://tensorvision.readthedocs.io/en/master/user/tutorial.html#workflow) backend which allows to organize experiments in a very clean way. Also check out [KittiSeg](https://github.com/MarvinTeichmann/KittiSeg#kittiseg) a similar project implementing a state-of-the-art road segmentation model. 
 
 ## Requirements
 
@@ -131,3 +131,7 @@ On a cluster it is useful to set `$TV_USE_GPUS=force`. This will make the flag `
 # Acknowledge
 
 This project started out as a fork of [TensorBox](https://github.com/TensorBox/TensorBox).
+
+-------
+
+<a name="myfootnote1">1</a>: Code to reproduce the Faster-RCNN can be found [here](https://github.com/MarvinTeichmann/kitti). The repository contains the official py-faster-rcnn code applied to the Kitti Object Detection Dataset.
