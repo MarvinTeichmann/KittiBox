@@ -161,12 +161,16 @@ def get_results(hypes, sess, image_pl, decoded_logits, validation=True):
             hypes, [img], np_pred_confidences,
             np_pred_boxes, show_removed=False,
             use_stitching=True, rnn_len=hypes['rnn_len'],
-            min_conf=0.50, tau=hypes['tau'])
+            min_conf=0.50, tau=hypes['tau'], color_acc=(0, 255, 0))
 
         if validation and i % 15 == 0:
             image_name = os.path.basename(pred_anno.imageName)
             image_name = os.path.join(img_dir, image_name)
             scp.misc.imsave(image_name, new_img)
+
+        if validation:
+            image_name = os.path.basename(pred_anno.imageName)
+            image_list.append((image_name, new_img))
         # get name of file to write to
         image_name = os.path.basename(true_anno.imageName)
         val_file_name = image_name.split('.')[0] + '.txt'
@@ -185,8 +189,6 @@ def get_results(hypes, sess, image_pl, decoded_logits, validation=True):
         write_rects(rects, val_file)
 
         pred_annolist.append(pred_anno)
-
-        image_list = []
 
     start_time = time.time()
     for i in xrange(100):

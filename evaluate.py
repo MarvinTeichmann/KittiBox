@@ -120,7 +120,9 @@ def main(_):
     logging.info("Analysis for pretrained model complete.")
     logging.info("For evaluating your own models I recommend using:"
                  "`tv-analyze --logdir /path/to/run`.")
-    logging.info("tv-analysis has a much cleaner interface.")
+    logging.info("")
+    logging.info("Output images can be found in {}/analyse/images.".format(
+        logdir))
 
 
 if __name__ == '__main__':
