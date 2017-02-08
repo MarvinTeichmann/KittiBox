@@ -10,6 +10,7 @@ sftp-config.json
 
 # C extensions
 *.so
+.directory
 
 # Distribution / packaging
 .Python

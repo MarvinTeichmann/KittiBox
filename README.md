@@ -55,9 +55,13 @@ I strongly recommend to exececute step 4. instead of downloading the data yourse
 
 ### Getting started
 
-Run: `python evaluate.py` to evaluate a trained model. 
+Run: `python demo.py --input_image data/demo.png` to obtain a prediction using [demo.png](data/demo.png) as input.
+
+Run: `python evaluate.py` to compute train and validation scores.
 
 Run: `python train.py` to train a new model on the Kitti Data.
+
+If you like to understand the code, I would recommend looking at [demo.py](demo.py) first. I have documented each step as  	thoroughly as possible in this file.
 
 ### Modifying Model & Train on your own data
 
