@@ -49,7 +49,7 @@ Above commands will install the linux version with gpu support. For other versio
     2. Call `python download_data.py --kitti_url URL_YOU_RETRIEVED`
 5. [Optional] Run `cd submodules/KittiObjective2/ && make` to build the Kitti evaluation code (see [submodules/KittiObjective2/README.md](submodules/KittiObjective2/README.md) for more information)
 
-Running `demo.py` does not require step 4. and step 5. However if you want to train your own model by running `train.py` or evaluate a model using `evaluate.py` those steps are required. Also note, that I strongly recommend using `download_data.py` instead of downloading the data yourself. The script will also extract and prepare the data. See [Managing Folders](README.md#managing-folders) if you want to controll where the data is stored.
+Running `demo.py` does not require step 4. and step 5. Those steps are only required if you want to train your own model using `train.py` or bench a model against the official evaluation score using `evaluate.py`. Also note, that I strongly recommend using `download_data.py` instead of downloading the data yourself. The script will also extract and prepare the data. See [Managing Folders](README.md#managing-folders) if you like to control where the data is stored.
 
 ## Tutorial
 
