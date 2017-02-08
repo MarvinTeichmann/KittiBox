@@ -43,13 +43,13 @@ Above commands will install the linux version with gpu support. For other versio
 
 1. Clone this repository: `git clone https://github.com/MarvinTeichmann/KittiBox.git`
 2. Initialize all submodules: `git submodule update --init --recursive`
-3. Retrieve kitti data url here: [http://www.cvlibs.net/download.php?file=data_object_image_2.zip](http://www.cvlibs.net/download.php?file=data_object_image_2.zip)
-4. Call `python download_data.py --kitti_url URL_YOU_RETRIEVED`
-5. Run `cd submodules/utils && make` to build cython code
-6. Run `cd submodules/KittiObjective2/ && make` to build the Kitti evaluation code
-(see [submodules/KittiObjective2/README.md](submodules/KittiObjective2/README.md) for more information)
+3. Run `cd submodules/utils && make` to build cython code
+4. [Optional] Download Kitti Object Detection Data 
+    1. Retrieve Kitti data url here: [http://www.cvlibs.net/download.php?file=data_object_image_2.zip](http://www.cvlibs.net/download.php?file=data_object_image_2.zip)
+    2. Call `python download_data.py --kitti_url URL_YOU_RETRIEVED`
+5. [Optional] Run `cd submodules/KittiObjective2/ && make` to build the Kitti evaluation code (see [submodules/KittiObjective2/README.md](submodules/KittiObjective2/README.md) for more information)
 
-I strongly recommend to exececute step 4. instead of downloading the data yourself. The script will also prepare the data to be in the right input format and check whether the right data is downloaded.
+Running `demo.py` does not require step 4. and step 5. However if you want to train your own model by running `train.py` or evaluate a model using `evaluate.py` those steps are required. Also note, that I strongly recommend using `download_data.py` instead of downloading the data yourself. The script will also extract and prepare the data. See [Managing Folders](README.md#managing-folders) if you want to controll where the data is stored.
 
 ## Tutorial
 
