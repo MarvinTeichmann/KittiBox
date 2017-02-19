@@ -118,7 +118,7 @@ def main():
             exit(1)
         if not kitti_data_url[-29:] == 'kitti/data_object_image_2.zip':
             logging.error("Wrong url.")
-            url = "http://www.cvlibs.net/download.php?file=data_road.zip"
+            url = "http://www.cvlibs.net/download.php?file=data_object_image_2.zip"
             logging.error("Please visit: {}".format(url))
             logging.error("and request Kitti Download link.")
             logging.error("Rerun scipt using"
