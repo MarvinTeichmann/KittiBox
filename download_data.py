@@ -110,7 +110,7 @@ def main():
     if not os.path.exists(kitti_dec_zip):
         if kitti_data_url == '':
             logging.error("Data URL for Kitti Data not provided.")
-            url = "http://www.cvlibs.net/download.php?file=data_road.zip"
+            url = "http://www.cvlibs.net/download.php?file=data_object_image_2.zip"
             logging.error("Please visit: {}".format(url))
             logging.error("and request Kitti Download link.")
             logging.error("Rerun scipt using"
