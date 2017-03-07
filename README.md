@@ -14,7 +14,7 @@ Task          | moderate   |    easy      | hard          |   speed (ms) | speed
 FastBox       |    86.45 %     |   92.80 %  |   67.59 %    |  35.75 ms   |  27.97
 Faster-RCNN<sup>[1](#myfootnote1)</sup>   |    78.42 %     |   91.62 %  |   66.85 %    |  78.30 ms    |  12.77
 
-The code contains for `train`, `evaluate` and `visualize` FastBox in tensorflow. It is build to be compatible with the [TensorVision](http://tensorvision.readthedocs.io/en/master/user/tutorial.html#workflow) backend which allows to organize experiments in a very clean way. Also check out [KittiSeg](https://github.com/MarvinTeichmann/KittiSeg#kittiseg) a similar project implementing a state-of-the-art road segmentation model. 
+The code contains for `train`, `evaluate` and `visualize` FastBox in tensorflow. It is build to be compatible with the [TensorVision](http://tensorvision.readthedocs.io/en/master/user/tutorial.html#workflow) backend which allows to organize experiments in a very clean way. Also check out [KittiSeg](https://github.com/MarvinTeichmann/KittiSeg#kittiseg) a similar project implementing a state-of-the-art road segmentation model. The code for joint inference can be found in the [MultiNet](https://github.com/MarvinTeichmann/MultiNet) repository.
 
 ## Requirements
 
