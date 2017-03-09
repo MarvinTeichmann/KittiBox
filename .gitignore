@@ -6,11 +6,15 @@ __pycache__/
 
 submodules/KittiObjective2/evaluate_object2
 
+/hypes/*_*.json
+
 sftp-config.json
 
 # C extensions
 *.so
 .directory
+
+run*.sh
 
 # Distribution / packaging
 .Python

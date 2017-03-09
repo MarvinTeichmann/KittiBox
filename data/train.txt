@@ -6998,4 +6998,3 @@ training/image_2/006996.png training/label_2/006996.txt
 training/image_2/006997.png training/label_2/006997.txt
 training/image_2/006998.png training/label_2/006998.txt
 training/image_2/006999.png training/label_2/006999.txt
-training/image_2/007000.png training/label_2/007000.txt
