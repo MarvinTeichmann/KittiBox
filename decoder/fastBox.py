@@ -309,6 +309,10 @@ def loss(hypes, decoded_logits, labels):
       decoded_logits: output of decoder
       labels: Labels tensor; Output from data_input
 
+      flags: 0 if object is present 1 otherwise
+      confidences: ??
+      boxes: encoding of bounding box location
+
     Returns:
       loss: Loss tensor of type float.
     """
