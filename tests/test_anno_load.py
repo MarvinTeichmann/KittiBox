@@ -15,7 +15,7 @@ import numpy as np
 import scipy as scp
 import scipy.misc
 
-sys.path.insert(1, 'incl')
+sys.path.insert(1, '../incl')
 from scipy.misc import imread, imresize
 
 from utils.data_utils import (annotation_jitter, annotation_to_h5)
@@ -250,7 +250,7 @@ def test_new_kitti():
     idlfile = "/home/mifs/mttt2/cvfs/DATA/KittiBox/train_3.idl"
     kitti_txt = "/home/mifs/mttt2/cvfs/DATA/KittiBox/train.txt"
 
-    with open('hypes/kittiBox.json', 'r') as f:
+    with open('../hypes/kittiBox.json', 'r') as f:
         logging.info("f: %s", f)
         hypes = json.load(f)
 
