@@ -103,7 +103,7 @@ def _load_kitti_txt(kitti_txt, hypes, jitter=False, random_shuffel=True):
                 im = im[:, :, :3]
             if im.shape[0] != hypes["image_height"] or \
                im.shape[1] != hypes["image_width"]:
-                if epoch == 0:
+                if True:
                     anno = _rescale_boxes(im.shape, anno,
                                           hypes["image_height"],
                                           hypes["image_width"])

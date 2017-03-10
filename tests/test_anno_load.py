@@ -43,6 +43,20 @@ flags.DEFINE_string('name', None,
 fake_anno = namedtuple('fake_anno_object', ['rects'])
 
 
+from PIL import Image, ImageDraw
+
+rect = namedtuple('Rectangel', ['left', 'top', 'right', 'bottom'])
+
+
+def _get_ignore_rect(x, y, cell_size):
+    left = x*cell_size
+    right = (x+1)*cell_size
+    top = y*cell_size
+    bottom = (y+1)*cell_size
+
+    return rect(left, top, right, bottom)
+
+
 def _rescale_boxes(current_shape, anno, target_height, target_width):
     x_scale = target_width / float(current_shape[1])
     y_scale = target_height / float(current_shape[0])
@@ -54,19 +68,6 @@ def _rescale_boxes(current_shape, anno, target_height, target_width):
         r.y1 *= y_scale
         r.y2 *= y_scale
     return anno
-
-
-def _rescale_boxes2(current_shape, rect_list, target_height, target_width):
-    x_scale = target_width / float(current_shape[1])
-    y_scale = target_height / float(current_shape[0])
-    for r in rect_list:
-        assert r.x1 < r.x2
-        r.x1 *= x_scale
-        r.x2 *= x_scale
-        assert r.y1 < r.y2
-        r.y1 *= y_scale
-        r.y2 *= y_scale
-    return rect_list
 
 
 def read_kitti_anno(label_file):
@@ -146,12 +147,37 @@ def _load_idl_tf(idlfile, hypes, jitter=False, random_shuffel=True):
                                             hypes["grid_height"],
                                             hypes["rnn_len"])
 
+            boxes = boxes.reshape([hypes["grid_height"],
+                                   hypes["grid_width"], 4])
+            flags = flags.reshape(hypes["grid_height"], hypes["grid_width"])
+
             yield {"image": im, "boxes": boxes, "flags": flags,
                    "rects": anno.rects, "anno": anno}
 
 
+def _generate_mask(hypes, ignore_rects):
+
+    width = hypes["image_width"]
+    height = hypes["image_height"]
+    grid_width = hypes["grid_width"]
+    grid_height = hypes["grid_height"]
+
+    mask = np.ones([grid_height, grid_width])
+
+    for rect in ignore_rects:
+        left = int(rect.x1/width*grid_width)
+        right = int(rect.x2/width*grid_width)
+        top = int(rect.y1/height*grid_height)
+        bottom = int(rect.y2/height*grid_height)
+        for x in range(left, right+1):
+            for y in range(top, bottom+1):
+                mask[y, x] = 0
+
+    return mask
+
+
 def _load_kitti_txt(kitti_txt, hypes, jitter=False, random_shuffel=True):
-    """Take the idlfile and net configuration and create a generator
+    """Take the txt file and net configuration and create a generator
     that outputs a jittered version of a random image from the annolist
     that is mean corrected."""
 
@@ -200,16 +226,23 @@ def _load_kitti_txt(kitti_txt, hypes, jitter=False, random_shuffel=True):
                     jitter_offset=jitter_offset)
 
             pos_list = [rect for rect in anno.rects if rect.classID == 1]
-            anno = fake_anno(pos_list)
+            pos_anno = fake_anno(pos_list)
 
-            boxes, flags = annotation_to_h5(hypes,
-                                            anno,
+            boxes, confs = annotation_to_h5(hypes,
+                                            pos_anno,
                                             hypes["grid_width"],
                                             hypes["grid_height"],
                                             hypes["rnn_len"])
 
-            yield {"image": im, "boxes": boxes, "flags": flags,
-                   "rects": pos_list}
+            mask_list = [rect for rect in anno.rects if rect.classID == -1]
+            mask = _generate_mask(hypes, mask_list)
+
+            boxes = boxes.reshape([hypes["grid_height"],
+                                   hypes["grid_width"], 4])
+            confs = confs.reshape(hypes["grid_height"], hypes["grid_width"])
+
+            yield {"image": im, "boxes": boxes, "confs": confs,
+                   "rects": pos_list, "mask": mask}
 
 
 def _make_sparse(n, d):
@@ -284,5 +317,124 @@ def test_new_kitti():
                 print('diff')
 
 
+def draw_rect(draw, rect, color):
+    rect_cords = ((rect.left, rect.top), (rect.left, rect.bottom),
+                  (rect.right, rect.bottom), (rect.right, rect.top),
+                  (rect.left, rect.top))
+    draw.line(rect_cords, fill=color, width=2)
+
+
+def draw_encoded(image, confs, mask=None, rects=None, cell_size=32):
+    image = image.astype('uint8')
+    im = Image.fromarray(image)
+
+    shape = confs.shape
+    if mask is None:
+        mask = np.ones(shape)
+
+    # overimage = mycm(confs_pred, bytes=True)
+
+    poly = Image.new('RGBA', im.size)
+    pdraw = ImageDraw.Draw(poly)
+
+    for y in range(shape[0]):
+        for x in range(shape[1]):
+            outline = (0, 0, 0, 255)
+            if confs[y, x]:
+                fill = (0, 255, 0, 100)
+            else:
+                fill = (0, 0, 0, 0)
+            rect = _get_ignore_rect(x, y, cell_size)
+            pdraw.rectangle(rect, fill=fill,
+                            outline=fill)
+            if not mask[y, x]:
+                pdraw.line(((rect.left, rect.bottom), (rect.right, rect.top)),
+                           fill=(0, 0, 0, 255), width=2)
+                pdraw.line(((rect.left, rect.top), (rect.right, rect.bottom)),
+                           fill=(0, 0, 0, 255), width=2)
+
+    color = (0, 0, 255)
+    for rect in rects:
+        rect_cords = ((rect.x1, rect.y1), (rect.x1, rect.y2),
+                      (rect.x2, rect.y2), (rect.x2, rect.y1),
+                      (rect.x1, rect.y1))
+        pdraw.line(rect_cords, fill=color, width=2)
+
+    im.paste(poly, mask=poly)
+
+    return np.array(im)
+
+
+def draw_kitti_jitter():
+    idlfile = "/home/mifs/mttt2/cvfs/DATA/KittiBox/train_3.idl"
+    kitti_txt = "/home/mifs/mttt2/cvfs/DATA/KittiBox/train.txt"
+
+    with open('../hypes/kittiBox.json', 'r') as f:
+        logging.info("f: %s", f)
+        hypes = json.load(f)
+
+    hypes["rnn_len"] = 1
+    gen = _load_kitti_txt(kitti_txt, hypes, random_shuffel=False)
+
+    data = gen.next()
+    for i in range(20):
+        data = gen.next()
+        image = draw_encoded(image=data['image'], confs=data['confs'],
+                             rects=data['rects'], mask=data['mask'])
+
+        scp.misc.imshow(image)
+        scp.misc.imshow(data['mask'])
+
+
+def draw_idl():
+    idlfile = "/home/mifs/mttt2/cvfs/DATA/KittiBox/train_3.idl"
+    kitti_txt = "/home/mifs/mttt2/cvfs/DATA/KittiBox/train.txt"
+
+    with open('../hypes/kittiBox.json', 'r') as f:
+        logging.info("f: %s", f)
+        hypes = json.load(f)
+
+    hypes["rnn_len"] = 1
+
+    gen = _load_idl_tf(idlfile, hypes, random_shuffel=False)
+
+    data = gen.next()
+    for i in range(20):
+        data = gen.next()
+        image = draw_encoded(image=data['image'], confs=data['flags'],
+                             rects=data['rects'])
+
+        scp.misc.imshow(image)
+
+
+def draw_both():
+    idlfile = "/home/mifs/mttt2/cvfs/DATA/KittiBox/train_3.idl"
+    kitti_txt = "/home/mifs/mttt2/cvfs/DATA/KittiBox/train.txt"
+
+    with open('../hypes/kittiBox.json', 'r') as f:
+        logging.info("f: %s", f)
+        hypes = json.load(f)
+
+    hypes["rnn_len"] = 1
+
+    gen1 = _load_idl_tf(idlfile, hypes, random_shuffel=False)
+    gen2 = _load_kitti_txt(kitti_txt, hypes, random_shuffel=False)
+
+    data1 = gen1.next()
+    data2 = gen2.next()
+    for i in range(20):
+        data1 = gen1.next()
+        data2 = gen2.next()
+        image1 = draw_encoded(image=data1['image'], confs=data1['flags'],
+                              rects=data1['rects'])
+        image2 = draw_encoded(image=data2['image'], confs=data2['confs'],
+                              rects=data2['rects'], mask=data2['mask'])
+
+        scp.misc.imshow(image1)
+
+        scp.misc.imshow(image2)
+
+
 if __name__ == '__main__':
-    test_new_kitti()
+
+    draw_both()

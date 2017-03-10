@@ -144,7 +144,7 @@ def main():
     logging.info("Preparing kitti_road data.")
 
     copyfiles = ["train_2.idl", "train_3.idl", "train_4.idl",
-                 "val_2.idl", "val_3.idl", "val_4.idl"]
+                 "val_2.idl", "val_3.idl", "val_4.idl", "train.txt", "val.txt"]
 
     for file in copyfiles:
         filename = os.path.join('data', file)
