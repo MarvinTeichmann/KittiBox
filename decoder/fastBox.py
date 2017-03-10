@@ -376,7 +376,10 @@ def loss(hypes, decoded_logits, labels):
 
     tf.add_to_collection('total_losses', loss)
 
-    weight_loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
+    reg_loss_col = tf.GraphKeys.REGULARIZATION_LOSSES
+
+    weight_loss = tf.add_n(tf.get_collection(reg_loss_col),
+                           name='reg_loss')
 
     total_loss = weight_loss + loss
 
