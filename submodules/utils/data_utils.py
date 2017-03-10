@@ -9,6 +9,8 @@ import annolist.AnnotationLib as al
 import scipy as scp
 import scipy.misc
 
+from collections import namedtuple
+
 def annotation_to_h5(H, a, cell_width, cell_height, max_len):
     region_size = H['region_size']
     # assert H['region_size'] == H['image_height'] / H['grid_height']
@@ -176,3 +178,66 @@ def annotation_jitter(I, a_in, min_box_width=20, jitter_scale_min=0.9, jitter_sc
     a.rects = new_rects
 
     return I2, a
+
+
+from PIL import Image, ImageDraw
+
+rect = namedtuple('Rectangel', ['left', 'top', 'right', 'bottom'])
+
+
+def _get_ignore_rect(x, y, cell_size):
+    left = x*cell_size
+    right = (x+1)*cell_size
+    top = y*cell_size
+    bottom = (y+1)*cell_size
+
+    return rect(left, top, right, bottom)
+
+
+def draw_rect(draw, rect, color):
+    rect_cords = ((rect.left, rect.top), (rect.left, rect.bottom),
+                  (rect.right, rect.bottom), (rect.right, rect.top),
+                  (rect.left, rect.top))
+    draw.line(rect_cords, fill=color, width=2)
+
+
+def draw_encoded(image, confs, mask=None, rects=None, cell_size=32):
+    image = image.astype('uint8')
+    im = Image.fromarray(image)
+
+    shape = confs.shape
+    if mask is None:
+        mask = np.ones(shape)
+
+    # overimage = mycm(confs_pred, bytes=True)
+
+    poly = Image.new('RGBA', im.size)
+    pdraw = ImageDraw.Draw(poly)
+
+    for y in range(shape[0]):
+        for x in range(shape[1]):
+            outline = (0, 0, 0, 255)
+            if confs[y, x]:
+                fill = (0, 255, 0, 100)
+            else:
+                fill = (0, 0, 0, 0)
+            rect = _get_ignore_rect(x, y, cell_size)
+            pdraw.rectangle(rect, fill=fill,
+                            outline=fill)
+            if not mask[y, x]:
+                pdraw.line(((rect.left, rect.bottom), (rect.right, rect.top)),
+                           fill=(0, 0, 0, 255), width=2)
+                pdraw.line(((rect.left, rect.top), (rect.right, rect.bottom)),
+                           fill=(0, 0, 0, 255), width=2)
+
+    color = (0, 0, 255)
+    if rects is not None:
+        for rect in rects:
+            rect_cords = ((rect.x1, rect.y1), (rect.x1, rect.y2),
+                          (rect.x2, rect.y2), (rect.x2, rect.y1),
+                          (rect.x1, rect.y1))
+            pdraw.line(rect_cords, fill=color, width=2)
+
+    im.paste(poly, mask=poly)
+
+    return np.array(im)

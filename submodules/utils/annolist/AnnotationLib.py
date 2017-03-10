@@ -198,6 +198,14 @@ class AnnoRect(object):
 		self.point = [];
                 self.at = {};
 
+	def __str__(self):
+		return "<AnnoRect x1: {}, x2: {}, y1: {}, y2: {}, class: {}>".format(
+			self.x1, self.x2, self.y1, self.y2, self.classID)
+
+	def __repr__(self):
+		return "<AnnoRect x1: {}, x2: {}, y1: {}, y2: {}, class: {}>".format(
+			self.x1, self.x2, self.y1, self.y2, self.classID)
+
 	def width(self):
 		return abs(self.x2-self.x1)
 
