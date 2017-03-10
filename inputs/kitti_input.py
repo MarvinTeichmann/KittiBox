@@ -88,10 +88,10 @@ def _generate_mask(hypes, ignore_rects):
         return mask
 
     for rect in ignore_rects:
-        left = int(rect.x1/width*grid_width)
-        right = int(rect.x2/width*grid_width)
-        top = int(rect.y1/height*grid_height)
-        bottom = int(rect.y2/height*grid_height)
+        left = int((rect.x1+2)/width*grid_width)
+        right = int((rect.x2-2)/width*grid_width)
+        top = int((rect.y1+2)/height*grid_height)
+        bottom = int((rect.y2-2)/height*grid_height)
         for x in range(left, right+1):
             for y in range(top, bottom+1):
                 mask[y, x] = 0
@@ -124,7 +124,8 @@ def _load_kitti_txt(kitti_txt, hypes, jitter=False, random_shuffel=True):
             rect_list = read_kitti_anno(gt_image_file,
                                         detect_truck=hypes['detect_truck'])
 
-            anno = fake_anno(rect_list)
+            anno = AnnoLib.Annotation()
+            anno.rects = rect_list
 
             im = scp.misc.imread(image_file)
             if im.shape[2] == 4:
@@ -187,6 +188,20 @@ def create_queues(hypes, phase):
     capacity = 30
     q = tf.FIFOQueue(capacity=capacity, dtypes=dtypes, shapes=shapes)
     return q
+
+
+def _processe_image(hypes, image):
+    # Because these operations are not commutative, consider randomizing
+    # randomize the order their operation.
+    augment_level = hypes['augment_level']
+    if augment_level > 0:
+        image = tf.image.random_brightness(image, max_delta=30)
+        image = tf.image.random_contrast(image, lower=0.75, upper=1.25)
+    if augment_level > 1:
+        image = tf.image.random_hue(image, max_delta=0.15)
+        image = tf.image.random_saturation(image, lower=0.5, upper=1.6)
+
+    return image
 
 
 def start_enqueuing_threads(hypes, q, phase, sess):
@@ -267,6 +282,16 @@ def test_new_kitti():
 
 def inputs(hypes, q, phase):
 
-    image, confidences, boxes, mask = q.dequeue_many(hypes['batch_size'])
-
-    return image, (confidences, boxes, mask)
+    if phase == 'val':
+        image, confidences, boxes, mask = q.dequeue()
+        image = tf.expand_dims(image, 0)
+        confidences = tf.expand_dims(confidences, 0)
+        boxes = tf.expand_dims(boxes, 0)
+        mask = tf.expand_dims(mask, 0)
+        return image, (confidences, boxes, mask)
+    elif phase == 'train':
+        image, confidences, boxes, mask = q.dequeue_many(hypes['batch_size'])
+        image = _processe_image(hypes, image)
+        return image, (confidences, boxes, mask)
+    else:
+        assert("Bad phase: {}".format(phase))

@@ -27,10 +27,14 @@ def inference(hypes, images, train=True):
     vgg_fcn.build(images, train=train, num_classes=num_classes,
                   random_init_fc8=True)
 
-    vgg_dict = {'unpooled': vgg_fcn.conv5_3,
-                'deep_feat': vgg_fcn.pool5,
-                'deep_feat_channels': 512,
-                'early_feat': vgg_fcn.conv4_3,
-                'scored_feat': vgg_fcn.score_fr}
+    if hypes['arch']['deep_feat'] == "pool5":
+        deep_feat = vgg_fcn.pool5
+    elif hypes['arch']['deep_feat'] == "fc7":
+        deep_feat = vgg_fcn.fc7
+    else:
+        raise NotImplementedError
+
+    vgg_dict = {'deep_feat': deep_feat,
+                'early_feat': vgg_fcn.conv4_3}
 
     return vgg_dict
