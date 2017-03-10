@@ -13,6 +13,8 @@ import scipy as scp
 import random
 
 from utils import train_utils
+from utils import data_utils
+
 
 import tensorflow as tf
 
@@ -267,7 +269,7 @@ def _compute_rezoom_loss(hypes, rezoom_loss_input):
     head = hypes['solver']['head_weights']
 
     perm_truth, pred_boxes, classes, pred_mask, \
-        pred_confs_deltas, pred_boxes_deltas = rezoom_loss_input
+        pred_confs_deltas, pred_boxes_deltas, mask_r = rezoom_loss_input
     if hypes['rezoom_change_loss'] == 'center':
         error = (perm_truth[:, :, 0:2] - pred_boxes[:, :, 0:2]) \
             / tf.maximum(perm_truth[:, :, 2:4], 1.)
@@ -288,7 +290,7 @@ def _compute_rezoom_loss(hypes, rezoom_loss_input):
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
         logits=pred_confs_deltas, labels=inside)
 
-    delta_confs_loss = tf.reduce_sum(cross_entropy) \
+    delta_confs_loss = tf.reduce_sum(cross_entropy*mask_r) \
         / outer_size * hypes['solver']['head_weights'][0] * 0.1
 
     delta_unshaped = perm_truth - (pred_boxes + pred_boxes_deltas)
@@ -317,7 +319,7 @@ def loss(hypes, decoded_logits, labels):
       loss: Loss tensor of type float.
     """
 
-    flags, confidences, boxes = labels
+    confidences, boxes, mask = labels
 
     pred_boxes = decoded_logits['pred_boxes']
     pred_logits = decoded_logits['pred_logits']
@@ -332,25 +334,25 @@ def loss(hypes, decoded_logits, labels):
     head = hypes['solver']['head_weights']
 
     # Compute confidence loss
-    classes = tf.reshape(flags, (outer_size, 1))
-    true_classes = tf.reshape(tf.cast(tf.greater(classes, 0), 'int64'),
-                              [outer_size * hypes['rnn_len']])
+    confidences = tf.reshape(confidences, (outer_size, 1))
+    true_classes = tf.reshape(tf.cast(tf.greater(confidences, 0), 'int64'),
+                              [outer_size])
 
-    pred_classes = tf.reshape(pred_logits,
-                              [outer_size * hypes['rnn_len'],
-                               hypes['num_classes']])
+    pred_classes = tf.reshape(pred_logits, [outer_size, hypes['num_classes']])
+    mask_r = tf.reshape(mask, [outer_size])
 
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
         logits=pred_classes, labels=true_classes)
 
-    cross_entropy_sum = (tf.reduce_sum(cross_entropy))
+    # ignore don't care areas
+    cross_entropy_sum = (tf.reduce_sum(mask_r*cross_entropy))
     confidences_loss = cross_entropy_sum / outer_size * head[0]
 
     true_boxes = tf.reshape(boxes, (outer_size, hypes['rnn_len'], 4))
 
     # box loss for background prediction needs to be zerod out
     boxes_mask = tf.reshape(
-        tf.cast(tf.greater(classes, 0), 'float32'), (outer_size, 1, 1))
+        tf.cast(tf.greater(confidences, 0), 'float32'), (outer_size, 1, 1))
 
     # danger zone
     residual = (true_boxes - pred_boxes) * boxes_mask
@@ -359,8 +361,8 @@ def loss(hypes, decoded_logits, labels):
 
     if hypes['use_rezoom']:
         # add rezoom loss
-        rezoom_loss_input = true_boxes, pred_boxes, classes, boxes_mask, \
-            pred_confs_deltas, pred_boxes_deltas
+        rezoom_loss_input = true_boxes, pred_boxes, confidences, boxes_mask, \
+            pred_confs_deltas, pred_boxes_deltas, mask_r
 
         delta_confs_loss, delta_boxes_loss = _compute_rezoom_loss(
             hypes, rezoom_loss_input)
@@ -400,13 +402,14 @@ def evaluation(hyp, images, labels, decoded_logits, losses, global_step):
     pred_boxes = decoded_logits['pred_boxes']
     # Estimating Accuracy
     grid_size = hyp['grid_width'] * hyp['grid_height']
-    flags, confidences, boxes = labels
-    pred_confidences_r = tf.reshape(
-        pred_confidences,
-        [hyp['batch_size'], grid_size, hyp['rnn_len'], hyp['num_classes']])
+    confidences, boxes, mask = labels
+
+    new_shape = [hyp['batch_size'], hyp['grid_height'],
+                 hyp['grid_width'], hyp['num_classes']]
+    pred_confidences_r = tf.reshape(pred_confidences, new_shape)
     # Set up summary operations for tensorboard
-    a = tf.equal(tf.argmax(confidences[:, :, 0, :], 2), tf.argmax(
-        pred_confidences_r[:, :, 0, :], 2))
+    a = tf.equal(tf.cast(confidences, 'int64'),
+                 tf.argmax(pred_confidences_r, 3))
 
     accuracy = tf.reduce_mean(tf.cast(a, 'float32'), name='/accuracy')
 
@@ -421,8 +424,9 @@ def evaluation(hyp, images, labels, decoded_logits, losses, global_step):
 
     # Log Images
     # show ground truth to verify labels are correct
-    test_true_confidences = confidences[0, :, :, :]
-    test_true_boxes = boxes[0, :, :, :]
+    pred_confidences_r = tf.reshape(
+        pred_confidences,
+        [hyp['batch_size'], grid_size, hyp['rnn_len'], hyp['num_classes']])
 
     # show predictions to visualize training progress
     pred_boxes_r = tf.reshape(
@@ -434,10 +438,14 @@ def evaluation(hyp, images, labels, decoded_logits, losses, global_step):
     def log_image(np_img, np_confidences, np_boxes, np_global_step,
                   pred_or_true):
 
-        merged = train_utils.add_rectangles(hyp, np_img, np_confidences,
-                                            np_boxes,
-                                            use_stitching=True,
-                                            rnn_len=hyp['rnn_len'])[0]
+        if pred_or_true == 'pred':
+            plot_image = train_utils.add_rectangles(
+                hyp, np_img, np_confidences, np_boxes, use_stitching=True,
+                rnn_len=hyp['rnn_len'])[0]
+        else:
+            np_mask = np_boxes
+            plot_image = data_utils.draw_encoded(
+                np_img[0], np_confidences[0], mask=np_mask[0], cell_size=32)
 
         num_images = 10
 
@@ -446,17 +454,18 @@ def evaluation(hyp, images, labels, decoded_logits, losses, global_step):
                 % num_images, pred_or_true)
         img_path = os.path.join(hyp['dirs']['output_dir'], filename)
 
-        scp.misc.imsave(img_path, merged)
-        return merged
+        scp.misc.imsave(img_path, plot_image)
+        return plot_image
 
     pred_log_img = tf.py_func(log_image,
                               [images, test_pred_confidences,
                                test_pred_boxes, global_step, 'pred'],
                               [tf.float32])
+
     true_log_img = tf.py_func(log_image,
-                              [images, test_true_confidences,
-                               test_true_boxes, global_step, 'true'],
-                              [tf.float32])
+                              [images, confidences,
+                               mask, global_step, 'true'],
+                              [tf.uint8])
     tf.summary.image('/pred_boxes', tf.stack(pred_log_img))
     tf.summary.image('/true_boxes', tf.stack(true_log_img))
     return eval_list

@@ -52,11 +52,8 @@ def write_rects(rects, filename):
 
 
 def evaluate(hypes, sess, image_pl, softmax):
-    pred_annolist, true_annolist, image_list, dt, dt2 = get_results(hypes,
-                                                                    sess,
-                                                                    image_pl,
-                                                                    softmax,
-                                                                    True)
+    pred_annolist, image_list, dt, dt2 = get_results(
+        hypes, sess, image_pl, softmax, True)
 
     val_path = make_val_dir(hypes)
 
@@ -92,11 +89,8 @@ def evaluate(hypes, sess, image_pl, softmax):
             mean = np.mean(result)
             eval_list.append(("val   " + mode, mean))
 
-    pred_annolist, true_annolist, image_list2, dt, dt2 = get_results(hypes,
-                                                                     sess,
-                                                                     image_pl,
-                                                                     softmax,
-                                                                     False)
+    pred_annolist, image_list2, dt, dt2 = get_results(
+        hypes, sess, image_pl, softmax, False)
 
     val_path = make_val_dir(hypes, False)
     subprocess.check_call([eval_cmd, val_path, label_dir])
@@ -127,27 +121,30 @@ def get_results(hypes, sess, image_pl, decoded_logits, validation=True):
     # Build Placeholder
     shape = [hypes['image_height'], hypes['image_width'], 3]
 
-    pred_annolist = AnnLib.AnnoList()
     if validation:
-        test_idl = os.path.join(hypes['dirs']['data_dir'],
-                                hypes['data']['val_idl'])
+        kitti_txt = os.path.join(hypes['dirs']['data_dir'],
+                                 hypes['data']['val_file'])
     else:
-        test_idl = os.path.join(hypes['dirs']['data_dir'],
-                                hypes['data']['train_idl'])
-    true_annolist = AnnLib.parse(test_idl)
+        kitti_txt = os.path.join(hypes['dirs']['data_dir'],
+                                 hypes['data']['train_file'])
+    # true_annolist = AnnLib.parse(test_idl)
 
-    data_dir = os.path.dirname(test_idl)
     val_dir = make_val_dir(hypes, validation)
     img_dir = make_img_dir(hypes)
 
     image_list = []
 
-    for i in range(len(true_annolist)):
+    pred_annolist = AnnLib.AnnoList()
+
+    files = [line.rstrip() for line in open(kitti_txt)]
+    base_path = os.path.realpath(os.path.dirname(kitti_txt))
+
+    for i, file in enumerate(files):
+        image_file = file.split(" ")[0]
         if not validation and random.random() > 0.2:
-                continue
-        true_anno = true_annolist[i]
-        orig_img = scp.misc.imread('%s/%s' % (data_dir,
-                                              true_anno.imageName))[:, :, :3]
+            continue
+        image_file = os.path.join(base_path, image_file)
+        orig_img = scp.misc.imread(image_file)[:, :, :3]
         img = scp.misc.imresize(orig_img, (hypes["image_height"],
                                            hypes["image_width"]),
                                 interp='cubic')
@@ -156,7 +153,7 @@ def get_results(hypes, sess, image_pl, decoded_logits, validation=True):
                                                          pred_confidences],
                                                         feed_dict=feed)
         pred_anno = AnnLib.Annotation()
-        pred_anno.imageName = true_anno.imageName
+        pred_anno.imageName = image_file
         new_img, rects = utils.train_utils.add_rectangles(
             hypes, [img], np_pred_confidences,
             np_pred_boxes, show_removed=False,
@@ -172,14 +169,13 @@ def get_results(hypes, sess, image_pl, decoded_logits, validation=True):
             image_name = os.path.basename(pred_anno.imageName)
             image_list.append((image_name, new_img))
         # get name of file to write to
-        image_name = os.path.basename(true_anno.imageName)
+        image_name = os.path.basename(image_file)
         val_file_name = image_name.split('.')[0] + '.txt'
         val_file = os.path.join(val_dir, val_file_name)
 
         # write rects to file
 
         pred_anno.rects = rects
-        pred_anno.imagePath = os.path.abspath(data_dir)
         pred_anno = utils.train_utils.rescale_boxes((
             hypes["image_height"],
             hypes["image_width"]),
@@ -206,4 +202,4 @@ def get_results(hypes, sess, image_pl, decoded_logits, validation=True):
             min_conf=0.001, tau=hypes['tau'])
     dt2 = (time.time() - start_time)/100
 
-    return pred_annolist, true_annolist, image_list, dt, dt2
+    return pred_annolist, image_list, dt, dt2

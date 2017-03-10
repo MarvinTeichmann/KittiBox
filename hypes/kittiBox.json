@@ -1,14 +1,14 @@
 {
     "model": {
-    "input_file": "../inputs/idl_input.py",
+    "input_file": "../inputs/kitti_input.py",
     "architecture_file" : "../encoder/vgg.py",
     "objective_file" : "../decoder/fastBox.py",
     "optimizer_file" : "../optimizer/generic_optimizer.py",
     "evaluator_file" : "../evals/kitti_eval.py"
     },
     "data": {
-        "train_idl": "KittiBox/train_3.idl",
-        "val_idl": "KittiBox/val_3.idl",
+        "train_file": "KittiBox/train.txt",
+        "val_file": "KittiBox/val.txt",
         "truncate_data": false,
         "eval_cmd": "../submodules/KittiObjective2/./evaluate_object2",
         "label_dir": "KittiBox/training/label_2"
@@ -35,6 +35,7 @@
         "max_steps": 140000
     },
     "use_rezoom": true,
+    "use_mask": true,
     "biggest_box_px": 10000,
     "rezoom_change_loss": "center",
     "rezoom_w_coords": [-0.25, 0, 0.25],
@@ -52,5 +53,6 @@
     "clip_norm": 1.0,
     "num_inner_channel": 500,
     "num_classes": 2,
-    "wd": 5e-4
+    "wd": 5e-4,
+    "detect_truck": false
 }

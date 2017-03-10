@@ -29,7 +29,7 @@ from collections import namedtuple
 fake_anno = namedtuple('fake_anno_object', ['rects'])
 
 
-def read_kitti_anno(label_file):
+def read_kitti_anno(label_file, detect_truck):
     """ Reads a kitti annotation file.
 
     Args:
@@ -42,7 +42,10 @@ def read_kitti_anno(label_file):
     rect_list = []
     for label in labels:
         if not (label[0] == 'Car' or label[0] == 'Van' or
-                label[0] == 'DontCare'):
+                label[0] == 'Truck' or label[0] == 'DontCare'):
+            continue
+        notruck = not detect_truck
+        if notruck and label[0] == 'Truck':
             continue
         if label[0] == 'DontCare':
             class_id = -1
@@ -72,8 +75,32 @@ def _rescale_boxes(current_shape, anno, target_height, target_width):
     return anno
 
 
+def _generate_mask(hypes, ignore_rects):
+
+    width = hypes["image_width"]
+    height = hypes["image_height"]
+    grid_width = hypes["grid_width"]
+    grid_height = hypes["grid_height"]
+
+    mask = np.ones([grid_height, grid_width])
+
+    if not hypes['use_mask']:
+        return mask
+
+    for rect in ignore_rects:
+        left = int(rect.x1/width*grid_width)
+        right = int(rect.x2/width*grid_width)
+        top = int(rect.y1/height*grid_height)
+        bottom = int(rect.y2/height*grid_height)
+        for x in range(left, right+1):
+            for y in range(top, bottom+1):
+                mask[y, x] = 0
+
+    return mask
+
+
 def _load_kitti_txt(kitti_txt, hypes, jitter=False, random_shuffel=True):
-    """Take the kitti_file and net configuration and create a generator
+    """Take the txt file and net configuration and create a generator
     that outputs a jittered version of a random image from the annolist
     that is mean corrected."""
 
@@ -94,7 +121,8 @@ def _load_kitti_txt(kitti_txt, hypes, jitter=False, random_shuffel=True):
             assert os.path.exists(gt_image_file), \
                 "File does not exist: %s" % gt_image_file
 
-            rect_list = read_kitti_anno(gt_image_file)
+            rect_list = read_kitti_anno(gt_image_file,
+                                        detect_truck=hypes['detect_truck'])
 
             anno = fake_anno(rect_list)
 
@@ -122,16 +150,23 @@ def _load_kitti_txt(kitti_txt, hypes, jitter=False, random_shuffel=True):
                     jitter_offset=jitter_offset)
 
             pos_list = [rect for rect in anno.rects if rect.classID == 1]
-            anno = fake_anno(pos_list)
+            pos_anno = fake_anno(pos_list)
 
-            boxes, flags = annotation_to_h5(hypes,
-                                            anno,
+            boxes, confs = annotation_to_h5(hypes,
+                                            pos_anno,
                                             hypes["grid_width"],
                                             hypes["grid_height"],
                                             hypes["rnn_len"])
 
-            yield {"image": im, "boxes": boxes, "flags": flags,
-                   "rects": pos_list}
+            mask_list = [rect for rect in anno.rects if rect.classID == -1]
+            mask = _generate_mask(hypes, mask_list)
+
+            boxes = boxes.reshape([hypes["grid_height"],
+                                   hypes["grid_width"], 4])
+            confs = confs.reshape(hypes["grid_height"], hypes["grid_width"])
+
+            yield {"image": im, "boxes": boxes, "confs": confs,
+                   "rects": pos_list, "mask": mask}
 
 
 def _make_sparse(n, d):
@@ -140,42 +175,15 @@ def _make_sparse(n, d):
     return v
 
 
-def _load_data_gen(hypes, phase, jitter):
-    grid_size = hypes['grid_width'] * hypes['grid_height']
-
-    data_file = hypes["data"]['%s_file' % phase]
-    data_dir = hypes['dirs']['data_dir']
-    data_file = os.path.join(data_dir, data_file)
-
-    data = _load_kitti_txt(data_file, hypes,
-                           jitter={'train': jitter, 'val': False}[phase])
-
-    for d in data:
-        output = {}
-        rnn_len = hypes["rnn_len"]
-        flags = d['flags'][0, :, 0, 0:rnn_len, 0]
-        boxes = np.transpose(d['boxes'][0, :, :, 0:rnn_len, 0], (0, 2, 1))
-        assert(flags.shape == (grid_size, rnn_len))
-        assert(boxes.shape == (grid_size, rnn_len, 4))
-
-        output['image'] = d['image']
-        confs = [[_make_sparse(int(detection), d=hypes['num_classes'])
-                 for detection in cell] for cell in flags]
-        output['confs'] = np.array(confs)
-        output['boxes'] = boxes
-        output['flags'] = flags
-
-        yield output
-
-
 def create_queues(hypes, phase):
     """Create Queues."""
     hypes["rnn_len"] = 1
-    dtypes = [tf.float32, tf.float32, tf.float32]
+    dtypes = [tf.float32, tf.float32, tf.float32, tf.float32]
     grid_size = hypes['grid_width'] * hypes['grid_height']
     shapes = ([hypes['image_height'], hypes['image_width'], 3],
-              [grid_size, hypes['rnn_len'], hypes['num_classes']],
-              [grid_size, hypes['rnn_len'], 4],)
+              [hypes['grid_height'], hypes['grid_width']],
+              [hypes['grid_height'], hypes['grid_width'], 4],
+              [hypes['grid_height'], hypes['grid_width']])
     capacity = 30
     q = tf.FIFOQueue(capacity=capacity, dtypes=dtypes, shapes=shapes)
     return q
@@ -188,20 +196,31 @@ def start_enqueuing_threads(hypes, q, phase, sess):
     x_in = tf.placeholder(tf.float32)
     confs_in = tf.placeholder(tf.float32)
     boxes_in = tf.placeholder(tf.float32)
+    mask_in = tf.placeholder(tf.float32)
 
     # Creating Enqueue OP
-    enqueue_op = q.enqueue((x_in, confs_in, boxes_in))
+    enqueue_op = q.enqueue((x_in, confs_in, boxes_in, mask_in))
 
-    def make_feed(d):
-        return {x_in: d['image'], confs_in: d['confs'], boxes_in: d['boxes']}
+    def make_feed(data):
+        return {x_in: data['image'],
+                confs_in: data['confs'],
+                boxes_in: data['boxes'],
+                mask_in: data['mask']}
 
     def thread_loop(sess, enqueue_op, gen):
         for d in gen:
             sess.run(enqueue_op, feed_dict=make_feed(d))
 
-    gen = _load_data_gen(hypes, phase, jitter=hypes['solver']['use_jitter'])
-    d = gen.next()
-    sess.run(enqueue_op, feed_dict=make_feed(d))
+    data_file = hypes["data"]['%s_file' % phase]
+    data_dir = hypes['dirs']['data_dir']
+    data_file = os.path.join(data_dir, data_file)
+
+    gen = _load_kitti_txt(data_file, hypes,
+                          jitter={'train': hypes['solver']['use_jitter'],
+                                  'val': False}[phase])
+
+    data = gen.next()
+    sess.run(enqueue_op, feed_dict=make_feed(data))
     t = threading.Thread(target=thread_loop,
                          args=(sess, enqueue_op, gen))
     t.daemon = True
@@ -248,7 +267,6 @@ def test_new_kitti():
 
 def inputs(hypes, q, phase):
 
-    image, confidences, boxes = q.dequeue_many(hypes['batch_size'])
-    flags = tf.argmax(confidences, 3)
+    image, confidences, boxes, mask = q.dequeue_many(hypes['batch_size'])
 
-    return image, (flags, confidences, boxes)
+    return image, (confidences, boxes, mask)
