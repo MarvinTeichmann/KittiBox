@@ -206,6 +206,11 @@ def decoder(hyp, logits, train):
     hyp['rnn_len'] = 1
     encoded_features = logits['deep_feat']
 
+    batch_size = hyp['batch_size']
+    if not train:
+        hyp['batch_size'] = 1
+    
+
     early_feat = logits['early_feat']
 
     initializer = tf.random_uniform_initializer(-0.1, 0.1)
@@ -241,6 +246,8 @@ def decoder(hyp, logits, train):
     dlogits['pred_boxes'] = pred_boxes
     dlogits['pred_logits'] = pred_logits
     dlogits['pred_confidences'] = pred_confidences
+
+    hyp['batch_size'] = batch_size
 
     return dlogits
 

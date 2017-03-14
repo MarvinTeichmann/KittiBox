@@ -51,6 +51,13 @@ Above commands will install the linux version with gpu support. For other versio
 
 Running `demo.py` does not require step 4. and step 5. Those steps are only required if you want to train your own model using `train.py` or bench a model against the official evaluation score using `evaluate.py`. Also note, that I strongly recommend using `download_data.py` instead of downloading the data yourself. The script will also extract and prepare the data. See [Managing Folders](README.md#managing-folders) if you like to control where the data is stored.
 
+##### To update an existing installation do:
+
+1. Pull all patches: `git pull`
+2. Update all submodules: `git submodule update --init --recursive`
+
+If you forget the second step you might end up with an inconstant repository state. You will already have the new code for KittiBox but run it old submodule versions code. This can work, but I do not run any tests to verify this.
+
 ## Tutorial
 
 ### Getting started
