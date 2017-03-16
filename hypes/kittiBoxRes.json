@@ -22,7 +22,7 @@
     },
     "arch": {
         "deep_feat": "fc7",
-        "layers": "101"
+        "layers": 101
     },
     "path": ["../incl"],
     "solver": {
@@ -33,7 +33,6 @@
         "learning_rate": 1e-5, 
         "learning_rate_step": null, 
         "hungarian_iou": 0.35,
-        "batch_size": 1,
         "weights": "",
         "head_weights": [1.0, 0.1],
         "max_steps": 140000
@@ -50,12 +49,13 @@
     "image_width": 1248, 
     "grid_width": 39,
     "grid_height": 12,
-    "batch_size": 5, 
+    "batch_size": 1, 
     "tau": 0.35,
     "scale_down": 0.1,
     "focus_size": 1.8,
     "region_size": 32,
     "clip_norm": 1.0,
+    "use_moving_average_bn": false,
     "load_pretrained": true,
     "num_inner_channel": 500,
     "num_classes": 2,

@@ -32,7 +32,6 @@
         "learning_rate": 1e-5, 
         "learning_rate_step": null, 
         "hungarian_iou": 0.35,
-        "batch_size": 1,
         "weights": "",
         "head_weights": [1.0, 0.1],
         "max_steps": 140000
@@ -49,7 +48,7 @@
     "image_width": 1248, 
     "grid_width": 39,
     "grid_height": 12,
-    "batch_size": 1, 
+    "batch_size": 5, 
     "tau": 0.35,
     "scale_down": 0.1,
     "focus_size": 1.8,
