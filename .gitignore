@@ -6,7 +6,7 @@ __pycache__/
 
 submodules/KittiObjective2/evaluate_object2
 
-/hypes/*_*.json
+/hypes/*.*.json
 
 sftp-config.json
 

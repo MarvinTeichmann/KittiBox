@@ -207,9 +207,9 @@ def decoder(hyp, logits, train):
     encoded_features = logits['deep_feat']
 
     batch_size = hyp['batch_size']
+    hyp['solver']['batch_size'] = batch_size
     if not train:
         hyp['batch_size'] = 1
-    
 
     early_feat = logits['early_feat']
 
