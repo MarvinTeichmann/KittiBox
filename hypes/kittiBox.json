@@ -18,7 +18,7 @@
         "eval_iter": 2000,
         "write_iter": 800,
         "save_iter": 2000,
-        "image_iter": 10000
+        "image_iter": 150000
     },
     "arch": {
         "deep_feat": "pool5"
