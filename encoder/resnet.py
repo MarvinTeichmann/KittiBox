@@ -244,12 +244,12 @@ def _bn(x, is_training, hypes):
     # These ops will only be preformed when training.
     mean, variance = tf.nn.moments(x, axis)
 
+    update_moving_mean = moving_averages.assign_moving_average(moving_mean,
+                                                               mean,
+                                                               BN_DECAY)
+    update_moving_variance = moving_averages.assign_moving_average(
+        moving_variance, variance, BN_DECAY)
     if hypes['use_moving_average_bn']:
-        update_moving_mean = moving_averages.assign_moving_average(moving_mean,
-                                                                   mean,
-                                                                   BN_DECAY)
-        update_moving_variance = moving_averages.assign_moving_average(
-            moving_variance, variance, BN_DECAY)
         tf.add_to_collection(UPDATE_OPS_COLLECTION, update_moving_mean)
         tf.add_to_collection(UPDATE_OPS_COLLECTION, update_moving_variance)
 
