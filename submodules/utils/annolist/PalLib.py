@@ -1,8 +1,8 @@
 import sys
 #import AnnoList_pb2
-import AnnotationLib;
+import utils.annolist.AnnotationLib
 
-from ma_utils import is_number;
+from utils.annolist.ma_utils import is_number;
 
 def loadPal(filename):
     _annolist = AnnoList_pb2.AnnoList();
@@ -23,7 +23,7 @@ def al2pal(annotations):
 
     #assert(isinstance(annotations, AnnotationLib.AnnoList));
 
-    # check type of attributes, add missing attributes 
+    # check type of attributes, add missing attributes
     for a in annotations:
         for r in a.rects:
             for k, v in r.at.iteritems():
@@ -39,7 +39,7 @@ def al2pal(annotations):
                 if k in annotations.attribute_val_to_str:
                     # don't allow undefined values
                     if not v in annotations.attribute_val_to_str[k]:
-                        print "attribute: {}, undefined value: {}".format(k, v);
+                        print("attribute: {}, undefined value: {}".format(k, v))
                         assert(False);
 
     # store attribute descriptions in pal structure
@@ -49,7 +49,7 @@ def al2pal(annotations):
     for a in annotations:
         _a = _annolist.annotation.add();
         _a.imageName = a.imageName;
-		
+
         for r in a.rects:
             _r = _a.rect.add();
 
@@ -57,7 +57,7 @@ def al2pal(annotations):
             _r.y1 = r.y1;
             _r.x2 = r.x2;
             _r.y2 = r.y2;
-            
+
             _r.score = float(r.score);
 
             if hasattr(r, 'id'):
@@ -82,7 +82,7 @@ def al2pal(annotations):
                         assert(AnnotationLib.is_compatible_attr_type(AnnotationLib.AnnoList.TYPE_STRING, type(v)));
                         _at.strval = str(v);
                     else:
-                        assert(false);            
+                        assert(false);
 
     return _annolist;
 
@@ -92,14 +92,14 @@ def pal2al(_annolist):
 
     for adesc in _annolist.attribute_desc:
         annotations.attribute_desc[adesc.name] = adesc;
-        print "attribute: ", adesc.name, adesc.id
+        print("attribute: ", adesc.name, adesc.id)
 
         for valdesc in adesc.val_to_str:
             annotations.add_attribute_val(adesc.name, valdesc.s, valdesc.id);
 
     attribute_name_from_id = {adesc.id: aname for aname, adesc in annotations.attribute_desc.iteritems()}
     attribute_dtype_from_id = {adesc.id: adesc.dtype for aname, adesc in annotations.attribute_desc.iteritems()}
-    
+
     for _a in _annolist.annotation:
         anno = AnnotationLib.Annotation()
 
@@ -129,8 +129,8 @@ def pal2al(_annolist):
                     cur_aname = attribute_name_from_id[_at.id];
                     cur_dtype = attribute_dtype_from_id[_at.id];
                 except KeyError as e:
-                    print "attribute: ", _at.id
-                    print e
+                    print("attribute: ", _at.id)
+                    print(e)
                     assert(False);
 
                 if cur_dtype == AnnotationLib.AnnoList.TYPE_INT32:
@@ -140,7 +140,7 @@ def pal2al(_annolist):
                 elif cur_dtype == AnnotationLib.AnnoList.TYPE_STRING:
                     rect.at[cur_aname] = _at.strval;
                 else:
-                    assert(False);            
+                    assert(False);
 
             anno.rects.append(rect);
 

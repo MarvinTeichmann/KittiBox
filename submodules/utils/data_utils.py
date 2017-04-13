@@ -8,7 +8,7 @@ import sys
 import argparse
 import numpy as np
 import copy
-import annolist.AnnotationLib as al
+import utils.annolist.AnnotationLib as al
 
 import scipy as scp
 import scipy.misc
