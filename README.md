@@ -51,7 +51,17 @@ Above commands will install the linux version with gpu support. For other versio
 
 Running `demo.py` does not require step 4. and step 5. Those steps are only required if you want to train your own model using `train.py` or bench a model against the official evaluation score using `evaluate.py`. Also note, that I strongly recommend using `download_data.py` instead of downloading the data yourself. The script will also extract and prepare the data. See [Managing Folders](README.md#managing-folders) if you like to control where the data is stored.
 
-##### To update an existing installation do:
+#### Microsoft Windows Users
+
+This project is developed, tested and maintained on a Linux operation system. It is written to be compatible with Windows, however a few modification are neccasary. You can find instructions on how to make the code run under Windows [here](https://github.com/Khaos/DD2017/tree/kittiEdit/Code/KittiBox#kittibox------implementation-on-windows10-geforce960).
+
+In general I would however suggest to install Linux, at least on a virtual system. Getting used to Linux is not that hard and most Deep Learning Code is written for Linux. On the long run you will save yourselfe quite a bit of pain.
+
+
+
+#### Update installation
+
+To update an existing KittiBox installation do:
 
 1. Pull all patches: `git pull`
 2. Update all submodules: `git submodule update --init --recursive`
