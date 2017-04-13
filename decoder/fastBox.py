@@ -37,31 +37,31 @@ def _rezoom(hyp, pred_boxes, early_feat, early_feat_channels,
 
     Where each letter indexes into the feature map with bilinear interpolation
     '''
-
-    grid_size = hyp['grid_width'] * hyp['grid_height']
-    outer_size = grid_size * hyp['batch_size']
-    indices = []
-    for w_offset in w_offsets:
-        for h_offset in h_offsets:
-            indices.append(train_utils.bilinear_select(hyp,
-                                                       pred_boxes,
-                                                       early_feat,
-                                                       early_feat_channels,
-                                                       w_offset, h_offset))
-    interp_indices = tf.concat(axis=0, values=indices)
-    rezoom_features = train_utils.interp(early_feat,
-                                         interp_indices,
-                                         early_feat_channels)
-    rezoom_features_r = tf.reshape(rezoom_features,
-                                   [len(w_offsets) * len(h_offsets),
-                                    outer_size,
-                                    hyp['rnn_len'],
-                                    early_feat_channels])
-    rezoom_features_t = tf.transpose(rezoom_features_r, [1, 2, 0, 3])
-    return tf.reshape(rezoom_features_t,
-                      [outer_size,
-                       hyp['rnn_len'],
-                       len(w_offsets) * len(h_offsets) * early_feat_channels])
+    with tf.name_scope('rezoom'):
+        grid_size = hyp['grid_width'] * hyp['grid_height']
+        outer_size = grid_size * hyp['batch_size']
+        indices = []
+        for w_offset in w_offsets:
+            for h_offset in h_offsets:
+                indices.append(train_utils.bilinear_select(hyp,
+                                                           pred_boxes,
+                                                           early_feat,
+                                                           early_feat_channels,
+                                                           w_offset, h_offset))
+        interp_indices = tf.concat(axis=0, values=indices)
+        rezoom_features = train_utils.interp(early_feat,
+                                             interp_indices,
+                                             early_feat_channels)
+        rezoom_features_r = tf.reshape(rezoom_features,
+                                       [len(w_offsets) * len(h_offsets),
+                                        outer_size,
+                                        hyp['rnn_len'],
+                                        early_feat_channels])
+        rezoom_features_t = tf.transpose(rezoom_features_r, [1, 2, 0, 3])
+        return tf.reshape(rezoom_features_t,
+                          [outer_size,
+                           hyp['rnn_len'],
+                           len(w_offsets) * len(h_offsets) * early_feat_channels])
 
 
 def _build_inner_layer(hyp, encoded_features, train):
@@ -93,7 +93,7 @@ def _build_inner_layer(hyp, encoded_features, train):
 
     if train:
         # Adding dropout during training
-            output = tf.nn.dropout(output, 0.5)
+        output = tf.nn.dropout(output, 0.5)
     return output
 
 
@@ -133,61 +133,61 @@ def _build_output_layer(hyp, hidden_output):
 
 
 def _build_rezoom_layer(hyp, rezoom_input, train):
+    with tf.name_scope('rezoom_layer'):
+        grid_size = hyp['grid_width'] * hyp['grid_height']
+        outer_size = grid_size * hyp['batch_size']
 
-    grid_size = hyp['grid_width'] * hyp['grid_height']
-    outer_size = grid_size * hyp['batch_size']
+        pred_boxes, pred_logits, pred_confidences, early_feat, \
+            hidden_output = rezoom_input
 
-    pred_boxes, pred_logits, pred_confidences, early_feat, \
-        hidden_output = rezoom_input
+        early_feat_channels = hyp['early_feat_channels']
+        early_feat = early_feat[:, :, :, :early_feat_channels]
 
-    early_feat_channels = hyp['early_feat_channels']
-    early_feat = early_feat[:, :, :, :early_feat_channels]
+        w_offsets = hyp['rezoom_w_coords']
+        h_offsets = hyp['rezoom_h_coords']
+        num_offsets = len(w_offsets) * len(h_offsets)
+        rezoom_features = _rezoom(
+            hyp, pred_boxes, early_feat, early_feat_channels,
+            w_offsets, h_offsets)
+        if train:
+            rezoom_features = tf.nn.dropout(rezoom_features, 0.5)
 
-    w_offsets = hyp['rezoom_w_coords']
-    h_offsets = hyp['rezoom_h_coords']
-    num_offsets = len(w_offsets) * len(h_offsets)
-    rezoom_features = _rezoom(
-        hyp, pred_boxes, early_feat, early_feat_channels,
-        w_offsets, h_offsets)
-    if train:
-        rezoom_features = tf.nn.dropout(rezoom_features, 0.5)
+        delta_features = tf.concat(
+            axis=1,
+            values=[hidden_output,
+                    rezoom_features[:, 0, :] / 1000.])
+        dim = 128
+        shape = [hyp['num_inner_channel'] +
+                 early_feat_channels * num_offsets,
+                 dim]
+        delta_weights1 = tf.get_variable('delta1',
+                                         shape=shape)
+        # TODO: maybe adding dropout here?
+        ip1 = tf.nn.relu(tf.matmul(delta_features, delta_weights1))
+        if train:
+            ip1 = tf.nn.dropout(ip1, 0.5)
+        delta_confs_weights = tf.get_variable(
+            'delta2', shape=[dim, hyp['num_classes']])
+        delta_boxes_weights = tf.get_variable('delta_boxes', shape=[dim, 4])
 
-    delta_features = tf.concat(
-        axis=1,
-        values=[hidden_output,
-                rezoom_features[:, 0, :] / 1000.])
-    dim = 128
-    shape = [hyp['num_inner_channel'] +
-             early_feat_channels * num_offsets,
-             dim]
-    delta_weights1 = tf.get_variable('delta1',
-                                     shape=shape)
-    # TODO: maybe adding dropout here?
-    ip1 = tf.nn.relu(tf.matmul(delta_features, delta_weights1))
-    if train:
-        ip1 = tf.nn.dropout(ip1, 0.5)
-    delta_confs_weights = tf.get_variable(
-        'delta2', shape=[dim, hyp['num_classes']])
-    delta_boxes_weights = tf.get_variable('delta_boxes', shape=[dim, 4])
+        rere_feature = tf.matmul(ip1, delta_boxes_weights) * 5
+        pred_boxes_delta = (tf.reshape(rere_feature, [outer_size, 1, 4]))
 
-    rere_feature = tf.matmul(ip1, delta_boxes_weights) * 5
-    pred_boxes_delta = (tf.reshape(rere_feature, [outer_size, 1, 4]))
+        scale = hyp.get('rezoom_conf_scale', 50)
+        feature2 = tf.matmul(ip1, delta_confs_weights) * scale
+        pred_confs_delta = tf.reshape(feature2, [outer_size, 1,
+                                      hyp['num_classes']])
 
-    scale = hyp.get('rezoom_conf_scale', 50)
-    feature2 = tf.matmul(ip1, delta_confs_weights) * scale
-    pred_confs_delta = tf.reshape(feature2, [outer_size, 1,
-                                  hyp['num_classes']])
+        pred_confs_delta = tf.reshape(pred_confs_delta,
+                                      [outer_size, hyp['num_classes']])
 
-    pred_confs_delta = tf.reshape(pred_confs_delta,
-                                  [outer_size, hyp['num_classes']])
+        pred_confidences_squash = tf.nn.softmax(pred_confs_delta)
+        pred_confidences = tf.reshape(pred_confidences_squash,
+                                      [outer_size, hyp['rnn_len'],
+                                       hyp['num_classes']])
 
-    pred_confidences_squash = tf.nn.softmax(pred_confs_delta)
-    pred_confidences = tf.reshape(pred_confidences_squash,
-                                  [outer_size, hyp['rnn_len'],
-                                   hyp['num_classes']])
-
-    return pred_boxes, pred_logits, pred_confidences, \
-        pred_confs_delta, pred_boxes_delta
+        return pred_boxes, pred_logits, pred_confidences, \
+            pred_confs_delta, pred_boxes_delta
 
 
 def decoder(hyp, logits, train):
@@ -216,13 +216,16 @@ def decoder(hyp, logits, train):
     initializer = tf.random_uniform_initializer(-0.1, 0.1)
 
     with tf.variable_scope('decoder', initializer=initializer):
-        # Build inner layer.
-        # See https://arxiv.org/abs/1612.07695 fig. 2 for details
-        hidden_output = _build_inner_layer(hyp, encoded_features, train)
-        # Build output layer
-        # See https://arxiv.org/abs/1612.07695 fig. 2 for details
-        pred_boxes, pred_logits, pred_confidences = _build_output_layer(
-            hyp, hidden_output)
+        with tf.name_scope('inner_layer'):
+            # Build inner layer.
+            # See https://arxiv.org/abs/1612.07695 fig. 2 for details
+            hidden_output = _build_inner_layer(hyp, encoded_features, train)
+
+        with tf.name_scope('output_layer'):
+            # Build output layer
+            # See https://arxiv.org/abs/1612.07695 fig. 2 for details
+            pred_boxes, pred_logits, pred_confidences = _build_output_layer(
+                hyp, hidden_output)
 
         # Dictionary filled with return values
         dlogits = {}
