@@ -21,7 +21,14 @@ def inference(hypes, images, train=True):
     vgg16_npy_path = os.path.join(hypes['dirs']['data_dir'], "vgg16.npy")
     vgg_fcn = fcn8_vgg.FCN8VGG(vgg16_npy_path=vgg16_npy_path)
 
-    num_classes = 2  # does not influence training what so ever
+    '''
+    num_classes does not influence training when KittiBox is used alone.
+    However, if you wish to use MultiNet with custom submodules, 
+    e.g., if KittiSeg is customized for != 2 classes, this value must
+    reflect num_classes in KittiSeg, since MultiNet will try to share 
+    variable score_fr/weights
+    ''' 
+    num_classes = 2  
     vgg_fcn.wd = hypes['wd']
 
     vgg_fcn.build(images, train=train, num_classes=num_classes,
